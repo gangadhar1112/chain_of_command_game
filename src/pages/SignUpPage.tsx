@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, ArrowLeft } from 'lucide-react';
+import { UserPlus, ArrowLeft, Loader } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
@@ -20,13 +20,12 @@ const SignUpPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    // Validate email
+    // Validate inputs
     if (!email.trim()) {
       setError('Email is required');
       return;
     }
 
-    // Validate password
     if (!password) {
       setError('Password is required');
       return;
@@ -44,9 +43,10 @@ const SignUpPage: React.FC = () => {
 
     try {
       setLoading(true);
-      await signUp(email, password);
+      await signUp(email.trim(), password);
       navigate('/');
     } catch (err) {
+      console.error('Signup error:', err);
       if (err instanceof FirebaseError) {
         switch (err.code) {
           case 'auth/email-already-in-use':
@@ -58,11 +58,17 @@ const SignUpPage: React.FC = () => {
           case 'auth/weak-password':
             setError('Password is too weak - must be at least 6 characters');
             break;
+          case 'auth/network-request-failed':
+            setError('Network error. Please check your internet connection.');
+            break;
+          case 'auth/too-many-requests':
+            setError('Too many attempts. Please try again later.');
+            break;
           default:
-            setError('Failed to create account. Please try again.');
+            setError(`Failed to create account: ${err.message}`);
         }
       } else {
-        setError('An unexpected error occurred');
+        setError('An unexpected error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -96,6 +102,7 @@ const SignUpPage: React.FC = () => {
                 setError('');
               }}
               placeholder="Enter your email"
+              disabled={loading}
               error={error && error.includes('email') ? error : ''}
             />
             
@@ -109,6 +116,7 @@ const SignUpPage: React.FC = () => {
                 setError('');
               }}
               placeholder="Enter your password"
+              disabled={loading}
               error={error && error.includes('Password') ? error : ''}
             />
             
@@ -122,11 +130,12 @@ const SignUpPage: React.FC = () => {
                 setError('');
               }}
               placeholder="Confirm your password"
+              disabled={loading}
               error={error && error.includes('match') ? error : ''}
             />
             
             {error && !error.includes('email') && !error.includes('Password') && !error.includes('match') && (
-              <p className="text-red-400 text-sm">{error}</p>
+              <p className="text-red-400 text-sm mt-2">{error}</p>
             )}
             
             <div className="pt-4">
@@ -136,7 +145,14 @@ const SignUpPage: React.FC = () => {
                 fullWidth
                 disabled={loading}
               >
-                {loading ? 'Creating Account...' : 'Sign Up'}
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <Loader className="animate-spin h-5 w-5 mr-2" />
+                    Creating Account...
+                  </span>
+                ) : (
+                  'Sign Up'
+                )}
               </Button>
             </div>
           </form>
@@ -152,6 +168,7 @@ const SignUpPage: React.FC = () => {
             <button
               onClick={() => navigate('/')}
               className="text-purple-300 hover:text-white flex items-center justify-center mx-auto"
+              disabled={loading}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back to Home
