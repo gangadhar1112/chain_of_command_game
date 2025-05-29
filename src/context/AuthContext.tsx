@@ -1,8 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { auth } from '../config/firebase';
 
 interface User {
   id: string;
-  email: string;
+  email: string | null;
 }
 
 interface AuthContextType {
@@ -28,61 +36,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in from localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email,
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const signUp = async (email: string, password: string) => {
-    // Check if user already exists
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    if (users.some((u: User) => u.email === email)) {
-      throw new Error('User already exists');
-    }
-
-    // Create new user
-    const newUser = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-    };
-
-    // Save user credentials
-    users.push({ ...newUser, password });
-    localStorage.setItem('users', JSON.stringify(users));
-
-    // Set current user
-    setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    setUser({
+      id: result.user.uid,
+      email: result.user.email,
+    });
   };
 
   const signIn = async (email: string, password: string) => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find((u: any) => u.email === email && u.password === password);
-    
-    if (!user) {
-      throw new Error('Invalid email or password');
-    }
-
-    const userWithoutPassword = {
-      id: user.id,
-      email: user.email,
-    };
-
-    setUser(userWithoutPassword);
-    localStorage.setItem('user', JSON.stringify(userWithoutPassword));
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    setUser({
+      id: result.user.uid,
+      email: result.user.email,
+    });
   };
 
   const logout = async () => {
+    await signOut(auth);
     setUser(null);
-    localStorage.removeItem('user');
   };
 
   return (
     <AuthContext.Provider value={{ user, loading, signUp, signIn, logout }}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
