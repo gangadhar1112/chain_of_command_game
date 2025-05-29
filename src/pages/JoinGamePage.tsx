@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Users, ArrowLeft } from 'lucide-react';
 import { useGame } from '../context/GameContext';
+import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -11,11 +12,20 @@ const JoinGamePage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
   const [gameIdError, setGameIdError] = useState('');
   const [nameError, setNameError] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
   
   const { joinGame } = useGame();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/signin', { state: { from: location.pathname } });
+    }
+  }, [user, loading, navigate, location]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     let hasError = false;
     
@@ -30,15 +40,33 @@ const JoinGamePage: React.FC = () => {
     }
     
     if (hasError) return;
-    
-    const success = joinGame(gameId.trim().toUpperCase(), playerName.trim());
-    
-    if (success) {
-      navigate(`/game/${gameId.trim().toUpperCase()}`);
-    } else {
-      setGameIdError('Invalid game code or game not found');
+
+    try {
+      setIsJoining(true);
+      const success = await joinGame(gameId.trim().toUpperCase(), playerName.trim());
+      
+      if (success) {
+        navigate(`/game/${gameId.trim().toUpperCase()}`);
+      } else {
+        setGameIdError('Game not found or already in progress');
+      }
+    } catch (error) {
+      setGameIdError('Error joining game. Please try again.');
+    } finally {
+      setIsJoining(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 container mx-auto px-4 py-8 flex items-center justify-center">
+          <div className="text-white">Loading...</div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -87,8 +115,13 @@ const JoinGamePage: React.FC = () => {
             </div>
             
             <div className="pt-4">
-              <Button type="submit" color="primary" fullWidth>
-                Join Game
+              <Button 
+                type="submit" 
+                color="primary" 
+                fullWidth
+                disabled={isJoining}
+              >
+                {isJoining ? 'Joining Game...' : 'Join Game'}
               </Button>
             </div>
           </form>
