@@ -1,0 +1,317 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useGame } from '../context/GameContext';
+import { Heart, Crown, Briefcase, Shield, BadgeAlert, Footprints, Users, Clock, Award, HelpCircle, XCircle } from 'lucide-react';
+import Header from '../components/Header';
+import Button from '../components/Button';
+import PlayerCard from '../components/PlayerCard';
+import RoleCard from '../components/RoleCard';
+import GameResults from '../components/GameResults';
+
+const GameRoomPage: React.FC = () => {
+  const { gameId } = useParams<{ gameId: string }>();
+  const navigate = useNavigate();
+  const {
+    gameState,
+    currentPlayer,
+    players,
+    isHost,
+    startGame,
+    leaveGame,
+    makeGuess,
+    getRoleInfo,
+  } = useGame();
+  
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
+  
+  // Redirect if game ID doesn't match
+  useEffect(() => {
+    if (gameState !== 'waiting' && (!gameId || gameId !== gameId)) {
+      navigate('/');
+    }
+  }, [gameState, gameId, navigate]);
+  
+  // Handle leaving the game
+  const handleLeaveGame = () => {
+    leaveGame();
+    navigate('/');
+  };
+  
+  // Get role icon component
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'king': return <Crown className="h-6 w-6" />;
+      case 'queen': return <Heart className="h-6 w-6" />;
+      case 'minister': return <Briefcase className="h-6 w-6" />;
+      case 'soldier': return <Shield className="h-6 w-6" />;
+      case 'police': return <BadgeAlert className="h-6 w-6" />;
+      case 'thief': return <Footprints className="h-6 w-6" />;
+      default: return <HelpCircle className="h-6 w-6" />;
+    }
+  };
+  
+  // Get the next role in the chain for the current player
+  const getTargetRoleName = () => {
+    if (!currentPlayer?.role) return null;
+    
+    const roleInfo = getRoleInfo(currentPlayer.role);
+    const roleChain = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
+    const currentIndex = roleChain.indexOf(currentPlayer.role);
+    
+    if (currentIndex === -1 || currentIndex === roleChain.length - 1) {
+      return null;
+    }
+    
+    const nextRole = roleChain[currentIndex + 1];
+    return getRoleInfo(nextRole as any).name;
+  };
+  
+  // Handle player selection for guessing
+  const handleSelectPlayer = (playerId: string) => {
+    if (gameState !== 'playing' || !currentPlayer?.isCurrentTurn || currentPlayer.isLocked) {
+      return;
+    }
+    
+    if (playerId === currentPlayer.id) {
+      return; // Can't select yourself
+    }
+    
+    setSelectedPlayerId(playerId);
+  };
+  
+  // Handle making a guess
+  const handleMakeGuess = () => {
+    if (!selectedPlayerId) return;
+    
+    makeGuess(selectedPlayerId);
+    setSelectedPlayerId(null);
+  };
+  
+  if (gameState === 'waiting') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-purple-900">
+        <div className="text-white text-center">
+          <h2 className="text-2xl font-bold mb-4">Game not found</h2>
+          <Button color="primary" onClick={() => navigate('/')}>
+            Back to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      
+      <main className="flex-1 container mx-auto px-4 py-6">
+        {/* Game Lobby */}
+        {gameState === 'lobby' && (
+          <div className="bg-purple-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-purple-700/50">
+            <div className="text-center mb-6">
+              <h1 className="text-3xl font-bold text-white">Game Lobby</h1>
+              <p className="text-purple-200 mt-2">
+                Game Code: <span className="font-mono font-bold text-yellow-300">{gameId}</span>
+              </p>
+              <p className="text-purple-200 mt-1">
+                Share this code with friends to join the game
+              </p>
+            </div>
+            
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-white flex items-center">
+                  <Users className="text-purple-300 mr-2 h-5 w-5" />
+                  Players ({players.length}/6)
+                </h2>
+                {isHost && (
+                  <Button
+                    color="primary"
+                    disabled={players.length < 3}
+                    onClick={startGame}
+                  >
+                    {players.length < 3 
+                      ? 'Need at least 3 players' 
+                      : 'Start Game'}
+                  </Button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {players.map((player) => (
+                  <div
+                    key={player.id}
+                    className="bg-purple-900/70 rounded-lg p-4 border border-purple-700/50 flex items-center"
+                  >
+                    <div className="w-12 h-12 bg-purple-700 rounded-full flex items-center justify-center mr-4">
+                      {player.isHost ? (
+                        <Crown className="text-yellow-400 h-6 w-6" />
+                      ) : (
+                        <Users className="text-purple-300 h-6 w-6" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">{player.name}</p>
+                      <p className="text-sm text-purple-300">
+                        {player.isHost ? 'Host' : 'Player'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                
+                {Array.from({ length: Math.max(0, 6 - players.length) }).map((_, index) => (
+                  <div
+                    key={`empty-${index}`}
+                    className="bg-purple-900/30 rounded-lg p-4 border border-purple-800/30 flex items-center"
+                  >
+                    <div className="w-12 h-12 bg-purple-800/30 rounded-full flex items-center justify-center mr-4">
+                      <Users className="text-purple-700 h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-purple-500">Waiting for player...</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex justify-center">
+              <Button color="secondary" onClick={handleLeaveGame}>
+                Leave Game
+              </Button>
+            </div>
+          </div>
+        )}
+        
+        {/* Game Playing */}
+        {gameState === 'playing' && (
+          <div className="bg-purple-800/50 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-purple-700/50">
+            <div className="flex flex-col lg:flex-row items-center justify-between mb-6">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white text-center lg:text-left">Chain of Command</h1>
+                <p className="text-purple-200 mt-1 text-center lg:text-left">
+                  Game Code: <span className="font-mono font-bold text-yellow-300">{gameId}</span>
+                </p>
+              </div>
+              
+              <div className="flex items-center mt-4 lg:mt-0 space-x-3">
+                <Button
+                  color="secondary"
+                  size="small"
+                  onClick={() => setShowHelp(!showHelp)}
+                >
+                  <HelpCircle className="h-5 w-5 mr-1" />
+                  Help
+                </Button>
+                <Button
+                  color="danger"
+                  size="small"
+                  onClick={handleLeaveGame}
+                >
+                  <XCircle className="h-5 w-5 mr-1" />
+                  Leave Game
+                </Button>
+              </div>
+            </div>
+            
+            {showHelp && (
+              <div className="bg-purple-900/70 rounded-lg p-4 mb-6 border border-purple-600/50">
+                <h3 className="text-lg font-semibold text-white mb-2 flex items-center">
+                  <HelpCircle className="text-purple-300 h-5 w-5 mr-2" />
+                  How to Play
+                </h3>
+                <ul className="space-y-2 text-purple-200 text-sm">
+                  <li>• The King starts and must find the Queen.</li>
+                  <li>• If correct, both players lock positions, and the Queen seeks the Minister.</li>
+                  <li>• If wrong, roles swap, and the guesser continues their turn.</li>
+                  <li>• The chain goes: King → Queen → Minister → Soldier → Police → Thief</li>
+                  <li>• When all players are locked in correct positions, the game ends.</li>
+                </ul>
+              </div>
+            )}
+            
+            {/* Your Role */}
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-white mb-3 flex items-center">
+                <Award className="text-yellow-400 mr-2 h-5 w-5" />
+                Your Role
+              </h2>
+              
+              {currentPlayer?.role ? (
+                <RoleCard role={currentPlayer.role} isLocked={currentPlayer.isLocked} />
+              ) : (
+                <div className="bg-purple-900/50 rounded-lg p-4 text-center">
+                  <p className="text-purple-300">Waiting for role assignment...</p>
+                </div>
+              )}
+            </div>
+            
+            {/* Current Turn */}
+            <div className="mb-4">
+              {currentPlayer?.isCurrentTurn ? (
+                <div className="bg-green-900/40 rounded-lg p-4 border border-green-700/50">
+                  <h3 className="text-lg font-semibold text-white mb-2">Your Turn!</h3>
+                  <p className="text-green-200">
+                    {currentPlayer.isLocked
+                      ? "You've locked your position! Select the player you think is the next in the chain."
+                      : `Select the player you think is the ${getTargetRoleName()}.`}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-purple-900/40 rounded-lg p-4 border border-purple-700/50">
+                  <h3 className="text-lg font-semibold text-white mb-2">Waiting for other player</h3>
+                  <p className="text-purple-200">
+                    It's another player's turn to make a guess.
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Players */}
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-white mb-3 flex items-center">
+                <Users className="text-purple-300 mr-2 h-5 w-5" />
+                Players
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {players.map((player) => (
+                  <PlayerCard
+                    key={player.id}
+                    player={player}
+                    isCurrentPlayer={player.id === currentPlayer?.id}
+                    isSelected={player.id === selectedPlayerId}
+                    onSelect={() => handleSelectPlayer(player.id)}
+                    getRoleIcon={getRoleIcon}
+                    getRoleInfo={getRoleInfo}
+                  />
+                ))}
+              </div>
+            </div>
+            
+            {/* Make Guess Button */}
+            {currentPlayer?.isCurrentTurn && selectedPlayerId && (
+              <div className="flex justify-center mt-6">
+                <Button
+                  color="primary"
+                  size="large"
+                  onClick={handleMakeGuess}
+                >
+                  Make Guess
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Game Completed */}
+        {gameState === 'completed' && (
+          <GameResults players={players} getRoleInfo={getRoleInfo} onLeaveGame={handleLeaveGame} />
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default GameRoomPage;
