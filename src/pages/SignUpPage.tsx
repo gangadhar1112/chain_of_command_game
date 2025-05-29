@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, ArrowLeft } from 'lucide-react';
+import { FirebaseError } from 'firebase/app';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
@@ -11,6 +12,7 @@ const SignUpPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -18,16 +20,52 @@ const SignUpPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    // Validate email
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+
+    // Validate password
+    if (!password) {
+      setError('Password is required');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
     try {
+      setLoading(true);
       await signUp(email, password);
       navigate('/');
     } catch (err) {
-      setError('Failed to create account');
+      if (err instanceof FirebaseError) {
+        switch (err.code) {
+          case 'auth/email-already-in-use':
+            setError('An account with this email already exists');
+            break;
+          case 'auth/invalid-email':
+            setError('Invalid email address');
+            break;
+          case 'auth/weak-password':
+            setError('Password is too weak - must be at least 6 characters');
+            break;
+          default:
+            setError('Failed to create account. Please try again.');
+        }
+      } else {
+        setError('An unexpected error occurred');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,8 +91,12 @@ const SignUpPage: React.FC = () => {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError('');
+              }}
               placeholder="Enter your email"
+              error={error && error.includes('email') ? error : ''}
             />
             
             <Input
@@ -62,8 +104,12 @@ const SignUpPage: React.FC = () => {
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError('');
+              }}
               placeholder="Enter your password"
+              error={error && error.includes('Password') ? error : ''}
             />
             
             <Input
@@ -71,17 +117,26 @@ const SignUpPage: React.FC = () => {
               id="confirmPassword"
               type="password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={(e) => {
+                setConfirmPassword(e.target.value);
+                setError('');
+              }}
               placeholder="Confirm your password"
+              error={error && error.includes('match') ? error : ''}
             />
             
-            {error && (
+            {error && !error.includes('email') && !error.includes('Password') && !error.includes('match') && (
               <p className="text-red-400 text-sm">{error}</p>
             )}
             
             <div className="pt-4">
-              <Button type="submit" color="primary" fullWidth>
-                Sign Up
+              <Button 
+                type="submit" 
+                color="primary" 
+                fullWidth
+                disabled={loading}
+              >
+                {loading ? 'Creating Account...' : 'Sign Up'}
               </Button>
             </div>
           </form>
