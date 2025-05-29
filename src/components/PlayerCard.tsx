@@ -85,15 +85,11 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
             )}
           </div>
           
-          {/* Role info (if assigned and visible to player) */}
+          {/* Role info - Now showing roles for all players */}
           <div className="flex items-center">
-            {isCurrentPlayer && player.role ? (
-              <div className={`text-sm ${roleInfo?.color}`}>
-                {roleInfo?.name}
-              </div>
-            ) : player.isLocked ? (
+            {player.role ? (
               <div className={`text-sm flex items-center ${roleInfo?.color}`}>
-                {getRoleIcon(player.role as string)}
+                {getRoleIcon(player.role)}
                 <span className="ml-1">{roleInfo?.name}</span>
               </div>
             ) : (
