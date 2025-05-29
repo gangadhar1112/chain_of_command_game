@@ -22,6 +22,7 @@ export interface Player {
   isHost: boolean;
   isLocked: boolean;
   isCurrentTurn: boolean;
+  userId: string; // Added to track which user owns this player
 }
 
 // Game interface
