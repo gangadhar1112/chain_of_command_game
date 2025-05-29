@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { ref, set, onValue, off, get, remove } from 'firebase/database';
+import { database } from '../config/firebase';
+import { useAuth } from './AuthContext';
 import { Player, GameState, Role, RoleInfo } from '../types/gameTypes';
 import { generateId } from '../utils/helpers';
 
-// Define the context type
 interface GameContextType {
   gameState: GameState;
   currentPlayer: Player | null;
@@ -10,7 +12,7 @@ interface GameContextType {
   gameId: string | null;
   isHost: boolean;
   createGame: (playerName: string) => string;
-  joinGame: (gameId: string, playerName: string) => boolean;
+  joinGame: (gameId: string, playerName: string) => Promise<boolean>;
   startGame: () => void;
   makeGuess: (targetPlayerId: string) => void;
   leaveGame: () => void;
@@ -18,7 +20,6 @@ interface GameContextType {
   getNextRoleInChain: (role: Role) => Role | null;
 }
 
-// Default context values
 const defaultContext: GameContextType = {
   gameState: 'waiting',
   currentPlayer: null,
@@ -26,7 +27,7 @@ const defaultContext: GameContextType = {
   gameId: null,
   isHost: false,
   createGame: () => '',
-  joinGame: () => false,
+  joinGame: () => Promise.resolve(false),
   startGame: () => {},
   makeGuess: () => {},
   leaveGame: () => {},
@@ -41,10 +42,8 @@ const defaultContext: GameContextType = {
   getNextRoleInChain: () => null,
 };
 
-// Create the context
 const GameContext = createContext<GameContextType>(defaultContext);
 
-// Role information
 const roleInfoMap: Record<Role, RoleInfo> = {
   king: {
     name: 'King',
@@ -96,89 +95,50 @@ const roleInfoMap: Record<Role, RoleInfo> = {
   },
 };
 
-// Chain order
 const roleChain: Role[] = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
 
-// Create a provider component
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [gameId, setGameId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState<boolean>(false);
-  const [currentTurnPlayerId, setCurrentTurnPlayerId] = useState<string | null>(null);
+  const { user } = useAuth();
 
-  // Poll for updates every 2 seconds
   useEffect(() => {
-    const pollInterval = setInterval(() => {
-      const savedGameData = localStorage.getItem('chainOfCommandGame');
-      if (savedGameData) {
-        try {
-          const { players: savedPlayers, gameState: savedGameState } = JSON.parse(savedGameData);
-          if (savedPlayers) {
-            setPlayers(savedPlayers);
-          }
-          if (savedGameState) {
-            setGameState(savedGameState);
-          }
-        } catch (error) {
-          console.error('Failed to parse saved game data', error);
-        }
+    if (!gameId) return;
+
+    const gameRef = ref(database, `games/${gameId}`);
+    onValue(gameRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setPlayers(data.players || []);
+        setGameState(data.gameState || 'waiting');
       }
-    }, 2000);
+    });
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      off(gameRef);
+    };
+  }, [gameId]);
+
+  const saveGameState = useCallback(async (
+    gameId: string,
+    players: Player[],
+    gameState: GameState
+  ) => {
+    const gameRef = ref(database, `games/${gameId}`);
+    await set(gameRef, {
+      players,
+      gameState,
+      updatedAt: Date.now()
+    });
   }, []);
 
-  // Initial load of game data
-  useEffect(() => {
-    const savedGameData = localStorage.getItem('chainOfCommandGame');
-    if (savedGameData) {
-      try {
-        const { gameId: savedGameId, playerId, isHost: savedIsHost, players: savedPlayers, gameState: savedGameState } = JSON.parse(savedGameData);
-        if (savedGameId) {
-          setGameId(savedGameId);
-          setIsHost(savedIsHost);
-          setPlayers(savedPlayers || []);
-          setGameState(savedGameState || 'waiting');
-          
-          if (playerId) {
-            const player = savedPlayers?.find((p: Player) => p.id === playerId);
-            if (player) {
-              setCurrentPlayer(player);
-              if (player.isCurrentTurn) {
-                setCurrentTurnPlayerId(player.id);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to parse saved game data', error);
-        localStorage.removeItem('chainOfCommandGame');
-      }
-    }
-  }, []);
-
-  // Save game data to localStorage
-  const saveGameData = useCallback((gameId: string, playerId: string, isHost: boolean, currentPlayers: Player[], currentGameState: GameState) => {
-    localStorage.setItem(
-      'chainOfCommandGame',
-      JSON.stringify({
-        gameId,
-        playerId,
-        isHost,
-        players: currentPlayers,
-        gameState: currentGameState
-      })
-    );
-  }, []);
-
-  // Get role info
   const getRoleInfo = useCallback((role: Role): RoleInfo => {
     return roleInfoMap[role];
   }, []);
 
-  // Get next role in chain
   const getNextRoleInChain = useCallback((role: Role): Role | null => {
     const currentIndex = roleChain.indexOf(role);
     if (currentIndex === -1 || currentIndex === roleChain.length - 1) {
@@ -187,10 +147,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return roleChain[currentIndex + 1];
   }, []);
 
-  // Create a new game
   const createGame = useCallback((playerName: string): string => {
+    if (!user) throw new Error('Must be signed in to create a game');
+
     const newGameId = generateId(6);
-    const playerId = generateId(8);
+    const playerId = user.uid;
     
     const newPlayer: Player = {
       id: playerId,
@@ -209,17 +170,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsHost(true);
     setGameState('lobby');
     
-    saveGameData(newGameId, playerId, true, newPlayers, 'lobby');
+    saveGameState(newGameId, newPlayers, 'lobby');
     
     return newGameId;
-  }, [saveGameData]);
+  }, [user, saveGameState]);
 
-  // Join an existing game
-  const joinGame = useCallback((gameId: string, playerName: string): boolean => {
-    const playerId = generateId(8);
-    
+  const joinGame = useCallback(async (gameId: string, playerName: string): Promise<boolean> => {
+    if (!user) throw new Error('Must be signed in to join a game');
+
+    const gameRef = ref(database, `games/${gameId}`);
+    const snapshot = await get(gameRef);
+    const gameData = snapshot.val();
+
+    if (!gameData || gameData.gameState !== 'lobby') {
+      return false;
+    }
+
     const newPlayer: Player = {
-      id: playerId,
+      id: user.uid,
       name: playerName,
       role: null,
       isHost: false,
@@ -227,7 +195,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isCurrentTurn: false,
     };
     
-    const updatedPlayers = [...players, newPlayer];
+    const updatedPlayers = [...(gameData.players || []), newPlayer];
     
     setGameId(gameId);
     setCurrentPlayer(newPlayer);
@@ -235,18 +203,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsHost(false);
     setGameState('lobby');
     
-    saveGameData(gameId, playerId, false, updatedPlayers, 'lobby');
+    await saveGameState(gameId, updatedPlayers, 'lobby');
     
     return true;
-  }, [players, saveGameData]);
+  }, [user, saveGameState]);
 
-  // Start the game
   const startGame = useCallback(() => {
     if (!isHost || players.length < 3 || players.length > 6) {
       return;
     }
     
-    // Assign roles randomly
     const availableRoles = [...roleChain.slice(0, players.length)];
     const shuffledRoles = availableRoles.sort(() => Math.random() - 0.5);
     
@@ -257,17 +223,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isCurrentTurn: false,
     }));
     
-    // Find the King to start the game
     const kingPlayer = updatedPlayers.find(player => player.role === 'king');
     if (kingPlayer) {
       kingPlayer.isCurrentTurn = true;
-      setCurrentTurnPlayerId(kingPlayer.id);
     }
     
     setPlayers(updatedPlayers);
     setGameState('playing');
     
-    // Update the current player's role
     if (currentPlayer) {
       const playerWithRole = updatedPlayers.find(p => p.id === currentPlayer.id);
       if (playerWithRole) {
@@ -275,13 +238,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     
-    // Save the updated game state
-    if (gameId && currentPlayer) {
-      saveGameData(gameId, currentPlayer.id, isHost, updatedPlayers, 'playing');
+    if (gameId) {
+      saveGameState(gameId, updatedPlayers, 'playing');
     }
-  }, [isHost, players, currentPlayer, gameId, saveGameData]);
+  }, [isHost, players, currentPlayer, gameId, saveGameState]);
 
-  // Make a guess
   const makeGuess = useCallback((targetPlayerId: string) => {
     if (!currentPlayer || !currentPlayer.isCurrentTurn || gameState !== 'playing') {
       return;
@@ -297,34 +258,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const targetPlayer = { ...players[targetPlayerIndex] };
     const expectedNextRole = getNextRoleInChain(guessingPlayer.role as Role);
     
-    // Check if the guess is correct
     const isCorrectGuess = targetPlayer.role === expectedNextRole;
     
     let updatedPlayers = [...players];
     
     if (isCorrectGuess) {
-      // Lock both players
       guessingPlayer.isLocked = true;
       targetPlayer.isLocked = true;
       
-      // Update the players in the array
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === guessingPlayer.id) return guessingPlayer;
         if (p.id === targetPlayer.id) return targetPlayer;
         return p;
       });
       
-      // Set the target player's turn
       guessingPlayer.isCurrentTurn = false;
       targetPlayer.isCurrentTurn = true;
-      setCurrentTurnPlayerId(targetPlayer.id);
     } else {
-      // Swap roles
       const tempRole = guessingPlayer.role;
       guessingPlayer.role = targetPlayer.role;
       targetPlayer.role = tempRole;
       
-      // Update the players in the array
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === guessingPlayer.id) return guessingPlayer;
         if (p.id === targetPlayer.id) return targetPlayer;
@@ -334,39 +288,42 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setPlayers(updatedPlayers);
     
-    // Update current player if it was modified
     if (currentPlayer.id === guessingPlayer.id) {
       setCurrentPlayer(guessingPlayer);
     }
     
-    // Save the updated game state
-    if (gameId && currentPlayer) {
-      saveGameData(gameId, currentPlayer.id, isHost, updatedPlayers, gameState);
+    if (gameId) {
+      saveGameState(gameId, updatedPlayers, gameState);
     }
     
-    // Check if the game is complete
     const allPlayersLocked = updatedPlayers.every(p => p.isLocked || p.role === 'thief');
     const thief = updatedPlayers.find(p => p.role === 'thief');
     
     if (allPlayersLocked && thief) {
       setGameState('completed');
-      if (gameId && currentPlayer) {
-        saveGameData(gameId, currentPlayer.id, isHost, updatedPlayers, 'completed');
+      if (gameId) {
+        saveGameState(gameId, updatedPlayers, 'completed');
       }
     }
-  }, [currentPlayer, players, gameState, getNextRoleInChain, gameId, isHost, saveGameData]);
+  }, [currentPlayer, players, gameState, getNextRoleInChain, gameId, saveGameState]);
 
-  // Leave the game
-  const leaveGame = useCallback(() => {
+  const leaveGame = useCallback(async () => {
+    if (gameId && currentPlayer) {
+      const updatedPlayers = players.filter(p => p.id !== currentPlayer.id);
+      if (updatedPlayers.length > 0) {
+        await saveGameState(gameId, updatedPlayers, gameState);
+      } else {
+        const gameRef = ref(database, `games/${gameId}`);
+        await remove(gameRef);
+      }
+    }
+
     setGameState('waiting');
     setCurrentPlayer(null);
     setPlayers([]);
     setGameId(null);
     setIsHost(false);
-    setCurrentTurnPlayerId(null);
-    
-    localStorage.removeItem('chainOfCommandGame');
-  }, []);
+  }, [gameId, currentPlayer, players, gameState, saveGameState]);
 
   return (
     <GameContext.Provider
@@ -390,5 +347,4 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-// Custom hook to use the game context
 export const useGame = () => useContext(GameContext);
