@@ -3,13 +3,13 @@ import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
+  apiKey: "AIzaSyBNgD-9KlsHXuC025GvpsSWb0rHV0Dj820",
+  authDomain: "chain-of-command-game.firebaseapp.com",
+  databaseURL: "https://chain-of-command-game-default-rtdb.firebaseio.com",
+  projectId: "chain-of-command-game",
+  storageBucket: "chain-of-command-game.firebasestorage.app",
+  messagingSenderId: "819791089519",
+  appId: "1:819791089519:web:61e1d26882ddf077fa229a"
 };
 
 let auth;
