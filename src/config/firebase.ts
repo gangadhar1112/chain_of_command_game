@@ -5,7 +5,7 @@ import { getDatabase } from 'firebase/database';
 const firebaseConfig = {
   apiKey: "AIzaSyBOvBtmHZI_mOX_9_5WxqLBkZR3BXJIh8Q",
   authDomain: "chain-of-command-game.firebaseapp.com",
-  databaseURL: "https://chain-of-command-game-default-rtdb.asia-southeast1.firebasedatabase.app",
+  databaseURL: "https://chain-of-command-game-default-rtdb.firebaseio.com",
   projectId: "chain-of-command-game",
   storageBucket: "chain-of-command-game.appspot.com",
   messagingSenderId: "123456789012",
