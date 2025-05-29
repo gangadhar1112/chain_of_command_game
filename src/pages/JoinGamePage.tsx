@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Users, ArrowLeft } from 'lucide-react';
+import { Users, ArrowLeft, Loader } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
@@ -43,14 +43,16 @@ const JoinGamePage: React.FC = () => {
 
     try {
       setIsJoining(true);
-      const success = await joinGame(gameId.trim().toUpperCase(), playerName.trim());
+      const formattedGameId = gameId.trim().toUpperCase();
+      const success = await joinGame(formattedGameId, playerName.trim());
       
       if (success) {
-        navigate(`/game/${gameId.trim().toUpperCase()}`);
+        navigate(`/game/${formattedGameId}`);
       } else {
         setGameIdError('Game not found or already in progress');
       }
     } catch (error) {
+      console.error('Error joining game:', error);
       setGameIdError('Error joining game. Please try again.');
     } finally {
       setIsJoining(false);
@@ -62,7 +64,10 @@ const JoinGamePage: React.FC = () => {
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 container mx-auto px-4 py-8 flex items-center justify-center">
-          <div className="text-white">Loading...</div>
+          <div className="flex items-center space-x-2 text-white">
+            <Loader className="animate-spin h-5 w-5" />
+            <span>Loading...</span>
+          </div>
         </main>
       </div>
     );
@@ -97,6 +102,7 @@ const JoinGamePage: React.FC = () => {
                 placeholder="Enter 6-character code"
                 error={gameIdError}
                 maxLength={6}
+                disabled={isJoining}
               />
             </div>
             
@@ -111,6 +117,7 @@ const JoinGamePage: React.FC = () => {
                 }}
                 placeholder="Enter your name"
                 error={nameError}
+                disabled={isJoining}
               />
             </div>
             
@@ -121,7 +128,14 @@ const JoinGamePage: React.FC = () => {
                 fullWidth
                 disabled={isJoining}
               >
-                {isJoining ? 'Joining Game...' : 'Join Game'}
+                {isJoining ? (
+                  <span className="flex items-center justify-center">
+                    <Loader className="animate-spin h-5 w-5 mr-2" />
+                    Joining Game...
+                  </span>
+                ) : (
+                  'Join Game'
+                )}
               </Button>
             </div>
           </form>
@@ -130,6 +144,7 @@ const JoinGamePage: React.FC = () => {
             <button
               onClick={() => navigate('/')}
               className="text-purple-300 hover:text-white flex items-center justify-center mx-auto"
+              disabled={isJoining}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back to Home
