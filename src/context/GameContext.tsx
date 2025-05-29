@@ -42,59 +42,6 @@ const defaultContext: GameContextType = {
 
 const GameContext = createContext<GameContextType>(defaultContext);
 
-const roleInfoMap: Record<Role, RoleInfo> = {
-  king: {
-    name: 'King',
-    icon: 'Crown',
-    color: 'text-yellow-500',
-    description: 'Seeks the Queen',
-    points: 10,
-    chainOrder: 1,
-  },
-  queen: {
-    name: 'Queen',
-    icon: 'Heart',
-    color: 'text-pink-500',
-    description: 'Seeks the Minister',
-    points: 9,
-    chainOrder: 2,
-  },
-  minister: {
-    name: 'Minister',
-    icon: 'Briefcase',
-    color: 'text-blue-500',
-    description: 'Seeks the Soldier',
-    points: 7,
-    chainOrder: 3,
-  },
-  soldier: {
-    name: 'Soldier',
-    icon: 'Shield',
-    color: 'text-green-500',
-    description: 'Seeks the Police',
-    points: 6,
-    chainOrder: 4,
-  },
-  police: {
-    name: 'Police',
-    icon: 'BadgeAlert',
-    color: 'text-indigo-500',
-    description: 'Seeks the Thief',
-    points: 4,
-    chainOrder: 5,
-  },
-  thief: {
-    name: 'Thief',
-    icon: 'Footprints',
-    color: 'text-red-500',
-    description: 'Tries to hide from the Police',
-    points: 0,
-    chainOrder: 6,
-  },
-};
-
-const roleChain: Role[] = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
-
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
@@ -342,5 +289,3 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useGame = () => useContext(GameContext);
-
-export { GameProvider }
