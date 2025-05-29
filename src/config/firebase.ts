@@ -12,12 +12,17 @@ const firebaseConfig = {
   appId: "1:123456789012:web:abc123def456ghi789jkl"
 };
 
+let auth;
+let database;
+
 // Initialize Firebase with error handling
 try {
   const app = initializeApp(firebaseConfig);
-  export const auth = getAuth(app);
-  export const database = getDatabase(app);
+  auth = getAuth(app);
+  database = getDatabase(app);
 } catch (error) {
   console.error("Error initializing Firebase:", error);
   throw error;
 }
+
+export { auth, database };
