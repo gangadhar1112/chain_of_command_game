@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { ref, set, onValue, remove } from 'firebase/database';
 import { useAuth } from './AuthContext';
+import { database } from '../config/firebase';
 import { Player, GameState, Role, RoleInfo } from '../types/gameTypes';
 import { generateId } from '../utils/helpers';
 
@@ -53,28 +55,31 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!gameId) return;
 
-    const interval = setInterval(() => {
-      const gameData = localStorage.getItem(`game_${gameId}`);
-      if (gameData) {
-        const parsedData = JSON.parse(gameData);
-        setPlayers(parsedData.players || []);
-        setGameState(parsedData.gameState || 'waiting');
+    const gameRef = ref(database, `games/${gameId}`);
+    const unsubscribe = onValue(gameRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setPlayers(data.players || []);
+        setGameState(data.gameState || 'waiting');
       }
-    }, 1000);
+    });
 
-    return () => clearInterval(interval);
+    return () => {
+      unsubscribe();
+    };
   }, [gameId]);
 
-  const saveGameState = useCallback((
+  const saveGameState = useCallback(async (
     gameId: string,
     players: Player[],
     gameState: GameState
   ) => {
-    localStorage.setItem(`game_${gameId}`, JSON.stringify({
+    const gameRef = ref(database, `games/${gameId}`);
+    await set(gameRef, {
       players,
       gameState,
       updatedAt: Date.now()
-    }));
+    });
   }, []);
 
   const getRoleInfo = useCallback((role: Role): RoleInfo => {
@@ -120,11 +125,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const joinGame = useCallback(async (gameId: string, playerName: string): Promise<boolean> => {
     if (!user) throw new Error('Must be signed in to join a game');
 
-    const gameData = localStorage.getItem(`game_${gameId}`);
-    if (!gameData) return false;
-
-    const parsedData = JSON.parse(gameData);
-    if (parsedData.gameState !== 'lobby') {
+    const gameRef = ref(database, `games/${gameId}`);
+    const snapshot = await new Promise((resolve) => {
+      onValue(gameRef, resolve, { onlyOnce: true });
+    });
+    
+    const gameData = snapshot.val();
+    if (!gameData || gameData.gameState !== 'lobby') {
       return false;
     }
 
@@ -137,7 +144,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isCurrentTurn: false,
     };
     
-    const updatedPlayers = [...(parsedData.players || []), newPlayer];
+    const updatedPlayers = [...(gameData.players || []), newPlayer];
     
     setGameId(gameId);
     setCurrentPlayer(newPlayer);
@@ -145,7 +152,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsHost(false);
     setGameState('lobby');
     
-    saveGameState(gameId, updatedPlayers, 'lobby');
+    await saveGameState(gameId, updatedPlayers, 'lobby');
     
     return true;
   }, [user, saveGameState]);
@@ -253,9 +260,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (gameId && currentPlayer) {
       const updatedPlayers = players.filter(p => p.id !== currentPlayer.id);
       if (updatedPlayers.length > 0) {
-        saveGameState(gameId, updatedPlayers, gameState);
+        await saveGameState(gameId, updatedPlayers, gameState);
       } else {
-        localStorage.removeItem(`game_${gameId}`);
+        const gameRef = ref(database, `games/${gameId}`);
+        await remove(gameRef);
       }
     }
 
