@@ -1,9 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { ref, set, onValue, remove, get } from 'firebase/database';
-import { useAuth } from './AuthContext';
-import { database } from '../config/firebase';
 import { Player, GameState, Role, RoleInfo } from '../types/gameTypes';
 import { generateId } from '../utils/helpers';
+
+// Define the context type
+interface GameContextType {
+  gameState: GameState;
+  currentPlayer: Player | null;
+  players: Player[];
+  gameId: string | null;
+  isHost: boolean;
+  createGame: (playerName: string) => string;
+  joinGame: (gameId: string, playerName: string) => Promise<boolean>;
+  startGame: () => void;
+  makeGuess: (targetPlayerId: string) => void;
+  leaveGame: () => void;
+  getRoleInfo: (role: Role) => RoleInfo;
+  getNextRoleInChain: (role: Role) => Role | null;
+}
 
 // Role information
 const roleInfoMap: Record<Role, RoleInfo> = {
@@ -60,21 +73,7 @@ const roleInfoMap: Record<Role, RoleInfo> = {
 // Chain order
 const roleChain: Role[] = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
 
-interface GameContextType {
-  gameState: GameState;
-  currentPlayer: Player | null;
-  players: Player[];
-  gameId: string | null;
-  isHost: boolean;
-  createGame: (playerName: string) => string;
-  joinGame: (gameId: string, playerName: string) => Promise<boolean>;
-  startGame: () => void;
-  makeGuess: (targetPlayerId: string) => void;
-  leaveGame: () => void;
-  getRoleInfo: (role: Role) => RoleInfo;
-  getNextRoleInChain: (role: Role) => Role | null;
-}
-
+// Default context values
 const defaultContext: GameContextType = {
   gameState: 'waiting',
   currentPlayer: null,
@@ -97,60 +96,52 @@ const defaultContext: GameContextType = {
   getNextRoleInChain: () => null,
 };
 
+// Create the context
 const GameContext = createContext<GameContextType>(defaultContext);
 
+// Create a provider component
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [gameState, setGameState] = useState<GameState>('waiting');
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [gameId, setGameId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState<boolean>(false);
-  const { user } = useAuth();
 
-  // Listen for game updates
+  // Load game state from localStorage
   useEffect(() => {
-    if (!gameId) return;
-
-    const gameRef = ref(database, `games/${gameId}`);
-    const unsubscribe = onValue(gameRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setPlayers(data.players || []);
-        setGameState(data.gameState || 'waiting');
+    const savedGameData = localStorage.getItem('chainOfCommandGame');
+    if (savedGameData) {
+      try {
+        const { gameId, players, gameState, currentPlayerId } = JSON.parse(savedGameData);
+        setGameId(gameId);
+        setPlayers(players);
+        setGameState(gameState);
         
-        // Update current player if needed
+        const currentPlayer = players.find(p => p.id === currentPlayerId);
         if (currentPlayer) {
-          const updatedCurrentPlayer = data.players?.find((p: Player) => p.id === currentPlayer.id);
-          if (updatedCurrentPlayer) {
-            setCurrentPlayer(updatedCurrentPlayer);
-          }
+          setCurrentPlayer(currentPlayer);
+          setIsHost(currentPlayer.isHost);
         }
-      } else {
-        // Game was deleted or doesn't exist
-        setGameState('waiting');
-        setPlayers([]);
-        setCurrentPlayer(null);
-        setGameId(null);
-        setIsHost(false);
+      } catch (error) {
+        console.error('Failed to load game data:', error);
       }
-    });
+    }
+  }, []);
 
-    return () => {
-      unsubscribe();
-    };
-  }, [gameId, currentPlayer]);
-
-  const saveGameState = useCallback(async (
+  // Save game state to localStorage
+  const saveGameState = useCallback((
     gameId: string,
     players: Player[],
-    gameState: GameState
+    gameState: GameState,
+    currentPlayerId: string
   ) => {
-    const gameRef = ref(database, `games/${gameId}`);
-    await set(gameRef, {
+    localStorage.setItem('chainOfCommandGame', JSON.stringify({
+      gameId,
       players,
       gameState,
+      currentPlayerId,
       updatedAt: Date.now()
-    });
+    }));
   }, []);
 
   const getRoleInfo = useCallback((role: Role): RoleInfo => {
@@ -166,10 +157,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const createGame = useCallback((playerName: string): string => {
-    if (!user) throw new Error('Must be signed in to create a game');
-
     const newGameId = generateId(6);
-    const playerId = user.id; // Changed from user.uid to user.id
+    const playerId = generateId(8);
     
     const newPlayer: Player = {
       id: playerId,
@@ -188,40 +177,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsHost(true);
     setGameState('lobby');
     
-    saveGameState(newGameId, newPlayers, 'lobby');
+    saveGameState(newGameId, newPlayers, 'lobby', playerId);
     
     return newGameId;
-  }, [user, saveGameState]);
+  }, [saveGameState]);
 
   const joinGame = useCallback(async (gameId: string, playerName: string): Promise<boolean> => {
-    if (!user) throw new Error('Must be signed in to join a game');
-
-    try {
-      const gameRef = ref(database, `games/${gameId}`);
-      const snapshot = await get(gameRef);
-      
-      if (!snapshot.exists()) {
-        return false;
+    // Check if game exists in localStorage
+    const savedGameData = localStorage.getItem('chainOfCommandGame');
+    let existingGame = null;
+    
+    if (savedGameData) {
+      try {
+        existingGame = JSON.parse(savedGameData);
+        if (existingGame.gameId !== gameId) {
+          existingGame = null;
+        }
+      } catch (error) {
+        console.error('Failed to parse game data:', error);
       }
+    }
 
-      const gameData = snapshot.val();
-      if (gameData.gameState !== 'lobby') {
-        return false;
-      }
-
-      // Check if player is already in the game
-      const existingPlayer = gameData.players?.find((p: Player) => p.id === user.id); // Changed from user.uid to user.id
-      if (existingPlayer) {
-        setGameId(gameId);
-        setCurrentPlayer(existingPlayer);
-        setPlayers(gameData.players);
-        setIsHost(existingPlayer.isHost);
-        setGameState(gameData.gameState);
-        return true;
-      }
-
+    if (!existingGame) {
+      // Create new game data if it doesn't exist
+      const playerId = generateId(8);
       const newPlayer: Player = {
-        id: user.id, // Changed from user.uid to user.id
+        id: playerId,
         name: playerName,
         role: null,
         isHost: false,
@@ -229,22 +210,40 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isCurrentTurn: false,
       };
       
-      const updatedPlayers = [...(gameData.players || []), newPlayer];
-      
-      await saveGameState(gameId, updatedPlayers, gameData.gameState);
+      const newPlayers = [newPlayer];
       
       setGameId(gameId);
+      setPlayers(newPlayers);
       setCurrentPlayer(newPlayer);
-      setPlayers(updatedPlayers);
       setIsHost(false);
-      setGameState(gameData.gameState);
+      setGameState('lobby');
       
+      saveGameState(gameId, newPlayers, 'lobby', playerId);
       return true;
-    } catch (error) {
-      console.error('Error joining game:', error);
-      return false;
     }
-  }, [user, saveGameState]);
+
+    // Join existing game
+    const playerId = generateId(8);
+    const newPlayer: Player = {
+      id: playerId,
+      name: playerName,
+      role: null,
+      isHost: false,
+      isLocked: false,
+      isCurrentTurn: false,
+    };
+    
+    const updatedPlayers = [...existingGame.players, newPlayer];
+    
+    setGameId(gameId);
+    setPlayers(updatedPlayers);
+    setCurrentPlayer(newPlayer);
+    setIsHost(false);
+    setGameState(existingGame.gameState);
+    
+    saveGameState(gameId, updatedPlayers, existingGame.gameState, playerId);
+    return true;
+  }, [saveGameState]);
 
   const startGame = useCallback(() => {
     if (!isHost || !gameId || players.length < 3 || players.length > 6) {
@@ -266,11 +265,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       kingPlayer.isCurrentTurn = true;
     }
     
-    saveGameState(gameId, updatedPlayers, 'playing');
-  }, [isHost, gameId, players, saveGameState]);
+    setPlayers(updatedPlayers);
+    setGameState('playing');
+    
+    if (currentPlayer) {
+      const updatedCurrentPlayer = updatedPlayers.find(p => p.id === currentPlayer.id);
+      if (updatedCurrentPlayer) {
+        setCurrentPlayer(updatedCurrentPlayer);
+      }
+      saveGameState(gameId, updatedPlayers, 'playing', currentPlayer.id);
+    }
+  }, [isHost, gameId, players, currentPlayer, saveGameState]);
 
   const makeGuess = useCallback((targetPlayerId: string) => {
-    if (!currentPlayer || !currentPlayer.isCurrentTurn || !gameId || gameState !== 'playing') {
+    if (!currentPlayer || !currentPlayer.isCurrentTurn || gameState !== 'playing') {
       return;
     }
     
@@ -312,27 +320,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
     
+    setPlayers(updatedPlayers);
+    setCurrentPlayer(guessingPlayer);
+    
     const allPlayersLocked = updatedPlayers.every(p => p.isLocked || p.role === 'thief');
     const thief = updatedPlayers.find(p => p.role === 'thief');
     
-    const newGameState = allPlayersLocked && thief ? 'completed' : 'playing';
-    saveGameState(gameId, updatedPlayers, newGameState);
-  }, [currentPlayer, gameId, players, gameState, getNextRoleInChain, saveGameState]);
+    if (allPlayersLocked && thief) {
+      setGameState('completed');
+      if (gameId) {
+        saveGameState(gameId, updatedPlayers, 'completed', guessingPlayer.id);
+      }
+    } else if (gameId) {
+      saveGameState(gameId, updatedPlayers, 'playing', guessingPlayer.id);
+    }
+  }, [currentPlayer, players, gameState, gameId, getNextRoleInChain, saveGameState]);
 
-  const leaveGame = useCallback(async () => {
+  const leaveGame = useCallback(() => {
     if (gameId && currentPlayer) {
       const updatedPlayers = players.filter(p => p.id !== currentPlayer.id);
       
       if (updatedPlayers.length > 0) {
-        // If current player was host, assign host to next player
-        if (currentPlayer.isHost && updatedPlayers.length > 0) {
+        if (currentPlayer.isHost) {
           updatedPlayers[0].isHost = true;
         }
-        await saveGameState(gameId, updatedPlayers, gameState);
+        saveGameState(gameId, updatedPlayers, gameState, updatedPlayers[0].id);
       } else {
-        // If last player leaves, remove the game
-        const gameRef = ref(database, `games/${gameId}`);
-        await remove(gameRef);
+        localStorage.removeItem('chainOfCommandGame');
       }
     }
 
