@@ -169,7 +169,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) throw new Error('Must be signed in to create a game');
 
     const newGameId = generateId(6);
-    const playerId = user.uid;
+    const playerId = user.id; // Changed from user.uid to user.id
     
     const newPlayer: Player = {
       id: playerId,
@@ -210,7 +210,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Check if player is already in the game
-      const existingPlayer = gameData.players?.find((p: Player) => p.id === user.uid);
+      const existingPlayer = gameData.players?.find((p: Player) => p.id === user.id); // Changed from user.uid to user.id
       if (existingPlayer) {
         setGameId(gameId);
         setCurrentPlayer(existingPlayer);
@@ -221,7 +221,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const newPlayer: Player = {
-        id: user.uid,
+        id: user.id, // Changed from user.uid to user.id
         name: playerName,
         role: null,
         isHost: false,
