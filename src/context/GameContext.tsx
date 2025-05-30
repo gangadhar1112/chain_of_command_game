@@ -155,6 +155,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return roleChain[currentIndex + 1];
   }, []);
 
+  const findNextTurnPlayer = useCallback((currentPlayers: Player[]): Player | null => {
+    // Find the first unlocked player in the role chain
+    for (const role of roleChain) {
+      const player = currentPlayers.find(p => p.role === role && !p.isLocked);
+      if (player) {
+        return player;
+      }
+    }
+    return null;
+  }, []);
+
   const createGame = useCallback((playerName: string): string => {
     if (!user) throw new Error('Must be logged in to create a game');
 
@@ -233,6 +244,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isCurrentTurn: false,
     }));
     
+    // Find the player with the King role and set their turn
     const kingPlayer = updatedPlayers.find(player => player.role === 'king');
     if (kingPlayer) {
       kingPlayer.isCurrentTurn = true;
@@ -270,48 +282,47 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let updatedPlayers = [...players];
     
     if (isCorrectGuess) {
-      // Correct guess - lock positions and pass turn
+      // Correct guess - lock both players and pass turn to the found player
       guessingPlayer.isLocked = true;
       targetPlayer.isLocked = true;
+      guessingPlayer.isCurrentTurn = false;
+      targetPlayer.isCurrentTurn = true;
       
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === guessingPlayer.id) return guessingPlayer;
         if (p.id === targetPlayer.id) return targetPlayer;
         return p;
       });
-      
-      guessingPlayer.isCurrentTurn = false;
-      targetPlayer.isCurrentTurn = true;
     } else {
-      // Wrong guess - swap roles and pass turn to the new King
+      // Wrong guess - swap roles and pass turn to whoever has the King role
       const tempRole = guessingPlayer.role;
       guessingPlayer.role = targetPlayer.role;
       targetPlayer.role = tempRole;
-      
-      // Find who has the King role after the swap
-      const newKing = guessingPlayer.role === 'king' ? guessingPlayer : targetPlayer;
+      guessingPlayer.isCurrentTurn = false;
+      targetPlayer.isCurrentTurn = false;
       
       updatedPlayers = updatedPlayers.map(p => {
-        if (p.id === guessingPlayer.id) {
-          return { ...guessingPlayer, isCurrentTurn: false };
-        }
-        if (p.id === targetPlayer.id) {
-          return { ...targetPlayer, isCurrentTurn: false };
-        }
-        if (p.id === newKing.id) {
-          return { ...p, isCurrentTurn: true };
-        }
+        if (p.id === guessingPlayer.id) return guessingPlayer;
+        if (p.id === targetPlayer.id) return targetPlayer;
         return p;
       });
+
+      // Find the player who now has the King role and give them the turn
+      const newKingPlayer = updatedPlayers.find(p => p.role === 'king' && !p.isLocked);
+      if (newKingPlayer) {
+        newKingPlayer.isCurrentTurn = true;
+        updatedPlayers = updatedPlayers.map(p => 
+          p.id === newKingPlayer.id ? newKingPlayer : p
+        );
+      }
     }
     
     setPlayers(updatedPlayers);
     setCurrentPlayer(guessingPlayer);
     
     const allPlayersLocked = updatedPlayers.every(p => p.isLocked || p.role === 'thief');
-    const thief = updatedPlayers.find(p => p.role === 'thief');
     
-    if (allPlayersLocked && thief) {
+    if (allPlayersLocked) {
       setGameState('completed');
       if (gameId) {
         saveGameState(gameId, updatedPlayers, 'completed');
