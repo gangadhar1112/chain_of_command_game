@@ -270,6 +270,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let updatedPlayers = [...players];
     
     if (isCorrectGuess) {
+      // Correct guess - lock positions and pass turn
       guessingPlayer.isLocked = true;
       targetPlayer.isLocked = true;
       
@@ -282,13 +283,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       guessingPlayer.isCurrentTurn = false;
       targetPlayer.isCurrentTurn = true;
     } else {
+      // Wrong guess - swap roles and pass turn to the new King
       const tempRole = guessingPlayer.role;
       guessingPlayer.role = targetPlayer.role;
       targetPlayer.role = tempRole;
       
+      // Find who has the King role after the swap
+      const newKing = guessingPlayer.role === 'king' ? guessingPlayer : targetPlayer;
+      
       updatedPlayers = updatedPlayers.map(p => {
-        if (p.id === guessingPlayer.id) return guessingPlayer;
-        if (p.id === targetPlayer.id) return targetPlayer;
+        if (p.id === guessingPlayer.id) {
+          return { ...guessingPlayer, isCurrentTurn: false };
+        }
+        if (p.id === targetPlayer.id) {
+          return { ...targetPlayer, isCurrentTurn: false };
+        }
+        if (p.id === newKing.id) {
+          return { ...p, isCurrentTurn: true };
+        }
         return p;
       });
     }
