@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Player, Role, RoleInfo } from '../types/gameTypes';
-import { Trophy, Crown, Medal, Award, ArrowRight, Sparkles, Star } from 'lucide-react';
+import { Trophy, Crown, Medal, Award, ArrowRight, Sparkles, Star, Shield } from 'lucide-react';
 import Button from './Button';
 import confetti from 'canvas-confetti';
 
@@ -24,17 +24,45 @@ const GameResults: React.FC<GameResultsProps> = ({
     const roleB = b.role ? getRoleInfo(b.role).points : 0;
     return roleB - roleA;
   });
+
+  // Get rank suffix (1st, 2nd, 3rd, etc.)
+  const getRankSuffix = (index: number): string => {
+    if (index === 0) return '1st';
+    if (index === 1) return '2nd';
+    if (index === 2) return '3rd';
+    return `${index + 1}th`;
+  };
   
   useEffect(() => {
     // Trigger initial animation
     const timer = setTimeout(() => {
       setShowAnimation(true);
-      // Trigger confetti
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+      
+      // Trigger celebratory confetti
+      const duration = 3000;
+      const end = Date.now() + duration;
+      
+      const frame = () => {
+        confetti({
+          particleCount: 2,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.8 }
+        });
+        
+        confetti({
+          particleCount: 2,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.8 }
+        });
+        
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+      
+      frame();
     }, 500);
     
     // Reveal roles after initial animation
@@ -70,7 +98,7 @@ const GameResults: React.FC<GameResultsProps> = ({
       <div className="mb-8">
         <h2 className="text-2xl font-semibold text-white mb-4 flex items-center justify-center">
           <Award className="text-yellow-400 mr-2 h-6 w-6" />
-          Final Standings
+          Final Rankings
         </h2>
         
         <div className="grid gap-4 max-w-2xl mx-auto">
@@ -111,7 +139,13 @@ const GameResults: React.FC<GameResultsProps> = ({
                         )}
                       </div>
                     ) : (
-                      <div className="w-12 h-12 bg-purple-800 rounded-full flex items-center justify-center">
+                      <div className={`
+                        w-12 h-12 bg-purple-800 rounded-full flex items-center justify-center
+                        transition-all duration-500 transform
+                        ${showAnimation ? 'scale-100 rotate-0' : 'scale-0 rotate-180'}
+                      `}
+                        style={{ transitionDelay: `${delay + 300}ms` }}
+                      >
                         <span className="text-purple-300 font-bold text-lg">{index + 1}</span>
                       </div>
                     )}
@@ -119,7 +153,14 @@ const GameResults: React.FC<GameResultsProps> = ({
                   
                   <div className="flex-1">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-white font-bold text-lg">{player.name}</h3>
+                      <div>
+                        <h3 className="text-white font-bold text-lg flex items-center">
+                          {player.name}
+                          <span className="ml-2 text-sm font-normal text-purple-300">
+                            {getRankSuffix(index)} Place
+                          </span>
+                        </h3>
+                      </div>
                       <div className="bg-purple-950/60 px-3 py-1 rounded-full">
                         <span className="text-yellow-400 font-bold">{roleInfo?.points} pts</span>
                       </div>
@@ -159,6 +200,7 @@ const GameResults: React.FC<GameResultsProps> = ({
                   )}
                   {player.isLocked && (
                     <div className="bg-green-900/30 text-green-400 px-3 py-1 rounded-full text-sm flex items-center">
+                      <Shield className="h-4 w-4 mr-1" />
                       Perfect Chain
                     </div>
                   )}
