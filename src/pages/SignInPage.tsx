@@ -51,14 +51,24 @@ const SignInPage: React.FC = () => {
               placeholder="Enter your email"
             />
             
-            <Input
-              label="Password"
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-            />
+            <div>
+              <Input
+                label="Password"
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+              />
+              <div className="mt-1 text-right">
+                <Link 
+                  to="/forgot-password"
+                  className="text-sm text-blue-400 hover:text-blue-300"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+            </div>
             
             {error && (
               <p className="text-red-400 text-sm">{error}</p>

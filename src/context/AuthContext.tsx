@@ -6,7 +6,8 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
@@ -21,6 +22,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -29,6 +31,7 @@ const AuthContext = createContext<AuthContextType>({
   signUp: async () => {},
   signIn: async () => {},
   logout: async () => {},
+  resetPassword: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -38,7 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set persistence to LOCAL
     setPersistence(auth, browserLocalPersistence).catch(console.error);
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
@@ -92,8 +94,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error('Reset password error:', error);
+      throw error;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      signUp, 
+      signIn, 
+      logout,
+      resetPassword 
+    }}>
       {children}
     </AuthContext.Provider>
   );
