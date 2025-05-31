@@ -112,15 +112,22 @@ const QuickPlayPage: React.FC = () => {
       
       try {
         if (isFirstPlayer) {
+          // First create the game and wait for it to be fully established
           const newGameId = generateId(6);
+          const gameCreated = await createGame(playerName);
+          
+          if (!gameCreated) {
+            throw new Error('Failed to create game');
+          }
+
+          // Only after game is created, update the gameInfo for other players
           await set(gameInfoRef, {
-            gameId: newGameId,
+            gameId: gameCreated,
             hostId: user.id,
             timestamp: Date.now(),
             players: activePlayers.slice(0, 6).map(p => p.name)
           });
           
-          const gameCreated = await createGame(playerName);
           setGameId(gameCreated);
           navigate(`/game/${gameCreated}`);
 
@@ -130,6 +137,9 @@ const QuickPlayPage: React.FC = () => {
             }
           }, 5000);
         } else {
+          // Add a small delay before joining to ensure host has created the game
+          await sleep(1000);
+          
           const gameInfo = await fetchGameInfo();
           
           if (!gameInfo) {
