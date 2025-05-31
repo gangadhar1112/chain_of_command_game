@@ -76,24 +76,24 @@ const QuickPlayPage: React.FC = () => {
   // Get unique active players
   const getUniqueActivePlayers = (players: Record<string, any>) => {
     const now = Date.now();
-    const uniquePlayers = new Map<string, { timestamp: number; data: any }>();
+    const uniquePlayersByUserId = new Map<string, any>();
 
-    // First pass: collect the most recent entry for each userId
+    // First, collect all players and keep only the most recent entry per userId
     Object.entries(players).forEach(([id, player]: [string, any]) => {
       if (now - player.timestamp < PLAYER_TIMEOUT) {
-        const existingPlayer = uniquePlayers.get(player.userId);
-        if (!existingPlayer || existingPlayer.timestamp < player.timestamp) {
-          uniquePlayers.set(player.userId, {
-            timestamp: player.timestamp,
-            data: { ...player, id }
+        const existingPlayer = uniquePlayersByUserId.get(player.userId);
+        if (!existingPlayer || player.timestamp > existingPlayer.timestamp) {
+          uniquePlayersByUserId.set(player.userId, {
+            ...player,
+            id,
+            timestamp: player.timestamp
           });
         }
       }
     });
 
     // Convert to array and sort by timestamp
-    return Array.from(uniquePlayers.values())
-      .map(entry => entry.data)
+    return Array.from(uniquePlayersByUserId.values())
       .sort((a, b) => a.timestamp - b.timestamp);
   };
 
@@ -164,7 +164,6 @@ const QuickPlayPage: React.FC = () => {
       const players = snapshot.val() || {};
       const activePlayers = getUniqueActivePlayers(players);
       
-      // Update waiting players count using the unique players array
       setWaitingPlayers(activePlayers.length);
 
       if (activePlayers.length >= 6) {
