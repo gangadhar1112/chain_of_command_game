@@ -156,7 +156,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const findNextActivePlayer = useCallback((players: Player[]): Player | null => {
-    // Find the first unlocked player in the role chain
     for (const role of roleChain) {
       const player = players.find(p => p.role === role && !p.isLocked);
       if (player) {
@@ -206,6 +205,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
+    // Check if the game already has 6 players
+    if (gameData.players && gameData.players.length >= 6) {
+      return false;
+    }
+
     const playerId = generateId(8);
     const newPlayer: Player = {
       id: playerId,
@@ -230,11 +234,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, saveGameState]);
 
   const startGame = useCallback(() => {
-    if (!isHost || !gameId || players.length < 3 || players.length > 6) {
+    if (!isHost || !gameId || players.length !== 6) {
       return;
     }
     
-    const availableRoles = [...roleChain.slice(0, players.length)];
+    const availableRoles = [...roleChain];
     const shuffledRoles = availableRoles.sort(() => Math.random() - 0.5);
     
     const updatedPlayers = players.map((player, index) => ({

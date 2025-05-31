@@ -25,10 +25,10 @@ const HomePage: React.FC = () => {
             <div className="bg-purple-900/70 rounded-lg p-5 border border-purple-700/50 shadow-md transition hover:bg-purple-900/90">
               <div className="flex items-center mb-3">
                 <Users className="text-purple-300 h-6 w-6 mr-2" />
-                <h3 className="text-xl font-semibold text-white">3-6 Players</h3>
+                <h3 className="text-xl font-semibold text-white">6 Players</h3>
               </div>
               <p className="text-purple-200">
-                Each player is assigned a secret role in the royal hierarchy. Find your place in the chain!
+                Gather six players to start the game. Each player is assigned a secret role in the royal hierarchy.
               </p>
             </div>
             
