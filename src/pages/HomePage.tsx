@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Crown, Users, Trophy, Star, ChevronRight, Heart, Briefcase, Shield, BadgeAlert, Footprints, ArrowRight } from 'lucide-react';
+import { Crown, Users, Trophy, Star, ChevronRight, Heart, Briefcase, Shield, BadgeAlert, Footprints, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import Header from '../components/Header';
 import Button from '../components/Button';
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   const chainRoles = [
     { name: 'King', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-900/30', points: 10 },
@@ -32,8 +33,31 @@ const HomePage: React.FC = () => {
             </p>
           </div>
 
+          {/* Game Features */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-purple-900/70 rounded-lg p-5 border border-purple-700/50 shadow-md transition hover:bg-purple-900/90">
+              <div className="flex items-center mb-3">
+                <Users className="text-purple-300 h-6 w-6 mr-2" />
+                <h3 className="text-xl font-semibold text-white">6 Players</h3>
+              </div>
+              <p className="text-purple-200">
+                Gather six players to start the game. Each player is assigned a secret role in the royal hierarchy.
+              </p>
+            </div>
+            
+            <div className="bg-purple-900/70 rounded-lg p-5 border border-purple-700/50 shadow-md transition hover:bg-purple-900/90">
+              <div className="flex items-center mb-3">
+                <Trophy className="text-yellow-400 h-6 w-6 mr-2" />
+                <h3 className="text-xl font-semibold text-white">Score Points</h3>
+              </div>
+              <p className="text-purple-200">
+                Higher positions in the hierarchy earn more points. The King earns 10 points, while the Thief earns none.
+              </p>
+            </div>
+          </div>
+
           {/* Chain of Command Diagram */}
-          <div className="mb-12">
+          <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-6 text-center">The Royal Chain</h2>
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 via-indigo-900/20 to-purple-900/20 rounded-lg" />
@@ -63,59 +87,53 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-purple-900/70 rounded-lg p-5 border border-purple-700/50 shadow-md transition hover:bg-purple-900/90">
-              <div className="flex items-center mb-3">
-                <Users className="text-purple-300 h-6 w-6 mr-2" />
-                <h3 className="text-xl font-semibold text-white">6 Players</h3>
+          {/* Collapsible How to Play Section */}
+          <div className="mb-8">
+            <button
+              onClick={() => setShowHowToPlay(!showHowToPlay)}
+              className="w-full bg-gradient-to-r from-purple-900/80 to-indigo-900/80 rounded-lg p-4 border border-purple-600/50 flex items-center justify-between"
+            >
+              <div className="flex items-center">
+                <Star className="text-yellow-400 h-6 w-6 mr-2" />
+                <h2 className="text-2xl font-bold text-white">How to Play</h2>
               </div>
-              <p className="text-purple-200">
-                Gather six players to start the game. Each player is assigned a secret role in the royal hierarchy.
-              </p>
-            </div>
+              {showHowToPlay ? (
+                <ChevronUp className="text-purple-300 h-6 w-6" />
+              ) : (
+                <ChevronDown className="text-purple-300 h-6 w-6" />
+              )}
+            </button>
             
-            <div className="bg-purple-900/70 rounded-lg p-5 border border-purple-700/50 shadow-md transition hover:bg-purple-900/90">
-              <div className="flex items-center mb-3">
-                <Trophy className="text-yellow-400 h-6 w-6 mr-2" />
-                <h3 className="text-xl font-semibold text-white">Score Points</h3>
+            {showHowToPlay && (
+              <div className="mt-4 bg-purple-900/60 rounded-lg p-6 border border-purple-600/50">
+                <ol className="space-y-3 text-purple-100">
+                  <li className="flex">
+                    <span className="font-bold text-yellow-400 mr-2">1.</span>
+                    <span>Each player receives a secret role in the royal hierarchy: King, Queen, Minister, Soldier, Police, or Thief.</span>
+                  </li>
+                  <li className="flex">
+                    <span className="font-bold text-yellow-400 mr-2">2.</span>
+                    <span>The King starts first and must find the Queen. After the King, each role must find the next role in the chain.</span>
+                  </li>
+                  <li className="flex">
+                    <span className="font-bold text-yellow-400 mr-2">3.</span>
+                    <span>On your turn, select a player you think has the next role in the chain (e.g., King looks for Queen, Queen for Minister).</span>
+                  </li>
+                  <li className="flex">
+                    <span className="font-bold text-yellow-400 mr-2">4.</span>
+                    <span>If your guess is correct, both you and the player you found are "locked" in your positions. The found player takes the next turn.</span>
+                  </li>
+                  <li className="flex">
+                    <span className="font-bold text-yellow-400 mr-2">5.</span>
+                    <span>If your guess is wrong, you swap roles with the player you selected. The King (whether original or new) starts the next turn.</span>
+                  </li>
+                  <li className="flex">
+                    <span className="font-bold text-yellow-400 mr-2">6.</span>
+                    <span>The game ends when all players except the Thief are locked in their correct positions in the chain.</span>
+                  </li>
+                </ol>
               </div>
-              <p className="text-purple-200">
-                Higher positions in the hierarchy earn more points. The King earns 10 points, while the Thief earns none.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-r from-purple-900/80 to-indigo-900/80 rounded-lg p-6 mb-8 border border-purple-600/50">
-            <h2 className="text-2xl font-bold text-white mb-4 flex items-center">
-              <Star className="text-yellow-400 h-6 w-6 mr-2" />
-              How to Play
-            </h2>
-            <ol className="space-y-3 text-purple-100">
-              <li className="flex">
-                <span className="font-bold text-yellow-400 mr-2">1.</span>
-                <span>Each player receives a secret role in the royal hierarchy: King, Queen, Minister, Soldier, Police, or Thief.</span>
-              </li>
-              <li className="flex">
-                <span className="font-bold text-yellow-400 mr-2">2.</span>
-                <span>The King starts first and must find the Queen. After the King, each role must find the next role in the chain.</span>
-              </li>
-              <li className="flex">
-                <span className="font-bold text-yellow-400 mr-2">3.</span>
-                <span>On your turn, select a player you think has the next role in the chain (e.g., King looks for Queen, Queen for Minister).</span>
-              </li>
-              <li className="flex">
-                <span className="font-bold text-yellow-400 mr-2">4.</span>
-                <span>If your guess is correct, both you and the player you found are "locked" in your positions. The found player takes the next turn.</span>
-              </li>
-              <li className="flex">
-                <span className="font-bold text-yellow-400 mr-2">5.</span>
-                <span>If your guess is wrong, you swap roles with the player you selected. The King (whether original or new) starts the next turn.</span>
-              </li>
-              <li className="flex">
-                <span className="font-bold text-yellow-400 mr-2">6.</span>
-                <span>The game ends when all players except the Thief are locked in their correct positions in the chain.</span>
-              </li>
-            </ol>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4">
