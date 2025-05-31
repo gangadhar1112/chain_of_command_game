@@ -17,6 +17,10 @@ const HomePage: React.FC = () => {
     { name: 'Thief', icon: Footprints, color: 'text-red-400', bg: 'bg-red-900/30', points: 0 },
   ];
 
+  const handleQuickPlay = () => {
+    navigate('/quick-play');
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -137,8 +141,12 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Button color="primary" size="large" onClick={handleQuickPlay}>
+              <PlayCircle className="mr-2 h-5 w-5" />
+              Play Game
+            </Button>
             <Link to="/create">
-              <Button color="primary" size="large">
+              <Button color="secondary" size="large">
                 Create Game
                 <ChevronRight className="ml-1 h-5 w-5" />
               </Button>
@@ -146,13 +154,6 @@ const HomePage: React.FC = () => {
             <Link to="/join">
               <Button color="secondary" size="large">
                 Join Game
-                <ChevronRight className="ml-1 h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/join">
-              <Button color="primary" size="large">
-                <PlayCircle className="mr-2 h-5 w-5" />
-                Play Game
                 <ChevronRight className="ml-1 h-5 w-5" />
               </Button>
             </Link>
