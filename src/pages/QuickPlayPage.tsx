@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, ArrowLeft, Loader, Crown } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
-import { ref, onValue, off, set, get } from 'firebase/database';
+import { ref, onValue, off, set, get, remove } from 'firebase/database';
 import { database } from '../config/firebase';
 import Header from '../components/Header';
 import Button from '../components/Button';
@@ -32,41 +32,58 @@ const QuickPlayPage: React.FC = () => {
 
     const quickPlayRef = ref(database, 'quickPlay');
     let gameCreated = false;
+    let cleanup = false;
     
     const unsubscribe = onValue(quickPlayRef, async (snapshot) => {
-      if (gameCreated) return;
+      if (gameCreated || cleanup) return;
 
       const players = snapshot.val() || {};
-      const currentPlayers = Object.values(players)
-        .filter((player: any) => 
+      const activePlayers = Object.entries(players)
+        .filter(([_, player]: [string, any]) => 
           Date.now() - player.timestamp < 30000 // Remove stale players (30s timeout)
         )
-        .sort((a: any, b: any) => a.timestamp - b.timestamp);
+        .map(([id, player]: [string, any]) => ({
+          id,
+          ...player
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp);
 
-      setWaitingPlayers(currentPlayers.length);
+      // Clean up stale players
+      const stalePlayerIds = Object.entries(players)
+        .filter(([_, player]: [string, any]) => 
+          Date.now() - player.timestamp >= 30000
+        )
+        .map(([id]) => id);
 
-      if (currentPlayers.length >= 6) {
+      if (stalePlayerIds.length > 0) {
+        stalePlayerIds.forEach(async (id) => {
+          await set(ref(database, `quickPlay/${id}`), null);
+        });
+      }
+
+      setWaitingPlayers(activePlayers.length);
+
+      if (activePlayers.length === 6) {
         gameCreated = true;
-        const isFirstPlayer = currentPlayers[0].userId === user.id;
         const newGameId = generateId(6);
         setGameId(newGameId);
+        const isFirstPlayer = activePlayers[0].id === user.id;
 
         try {
           if (isFirstPlayer) {
-            // Create new game
+            // First player creates the game
             createGame(playerName);
             
             // Wait for game creation
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             // Clear quick play queue
-            await set(quickPlayRef, null);
+            await remove(quickPlayRef);
           } else {
-            // Join existing game
+            // Other players join the game
             await joinGame(newGameId, playerName);
           }
 
-          // Navigate to game
           navigate(`/game/${newGameId}`);
         } catch (error) {
           console.error('Error in game creation/joining:', error);
@@ -79,24 +96,30 @@ const QuickPlayPage: React.FC = () => {
 
     // Add player to queue
     const addToQueue = async () => {
-      try {
-        const playerRef = ref(database, `quickPlay/${user.id}`);
-        await set(playerRef, {
-          name: playerName.trim(),
-          userId: user.id,
-          timestamp: Date.now()
-        });
-      } catch (error) {
-        console.error('Error adding to queue:', error);
-        setNameError('Error joining queue. Please try again.');
-        setIsJoining(false);
+      if (!cleanup) {
+        try {
+          const playerRef = ref(database, `quickPlay/${user.id}`);
+          await set(playerRef, {
+            name: playerName.trim(),
+            userId: user.id,
+            timestamp: Date.now()
+          });
+        } catch (error) {
+          console.error('Error adding to queue:', error);
+          setNameError('Error joining queue. Please try again.');
+          setIsJoining(false);
+        }
       }
     };
 
+    // Keep player entry fresh
+    const refreshInterval = setInterval(addToQueue, 10000);
     addToQueue();
 
     // Cleanup function
     return () => {
+      cleanup = true;
+      clearInterval(refreshInterval);
       off(quickPlayRef);
       if (user) {
         const playerRef = ref(database, `quickPlay/${user.id}`);
