@@ -20,11 +20,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   getRoleInfo,
 }) => {
   const canSelect = !isCurrentPlayer && player.role !== null;
-  
-  // Get the role info if the player has a role
   const roleInfo = player.role ? getRoleInfo(player.role) : null;
   
-  // Card border class based on state
   const cardBorderClass = isSelected
     ? 'border-yellow-400 shadow-lg shadow-yellow-400/20'
     : player.isCurrentTurn
@@ -33,7 +30,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     ? 'border-indigo-500'
     : 'border-purple-700/50';
     
-  // Background class based on state
   const cardBgClass = isSelected
     ? 'bg-purple-800/70'
     : player.isCurrentTurn
@@ -42,7 +38,6 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     ? 'bg-purple-900/70'
     : 'bg-purple-900/50';
 
-  // Scale animation on hover
   const hoverClass = canSelect
     ? 'cursor-pointer transition transform hover:scale-105'
     : '';
@@ -50,64 +45,59 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   return (
     <div
       className={`
-        rounded-lg p-4 ${cardBgClass} ${cardBorderClass} ${hoverClass}
+        rounded-lg p-3 ${cardBgClass} ${cardBorderClass} ${hoverClass}
         relative overflow-hidden transition-all duration-300
       `}
       onClick={canSelect ? onSelect : undefined}
     >
-      {/* Glow effect for current turn */}
       {player.isCurrentTurn && (
         <div className="absolute inset-0 opacity-20 bg-green-500 animate-pulse pointer-events-none" />
       )}
       
       <div className="flex items-center relative z-10">
-        {/* Player avatar */}
         <div className={`
-          w-12 h-12 rounded-full flex items-center justify-center mr-4
+          w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mr-2 sm:mr-3
           ${player.isLocked ? 'bg-indigo-700' : 'bg-purple-700'}
         `}>
           {player.isHost ? (
-            <Crown className="text-yellow-400 h-6 w-6" />
+            <Crown className="text-yellow-400 h-4 w-4 sm:h-5 sm:w-5" />
           ) : (
-            <User className="text-purple-300 h-6 w-6" />
+            <User className="text-purple-300 h-4 w-4 sm:h-5 sm:w-5" />
           )}
         </div>
         
-        {/* Player info */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center">
-            <p className={`font-semibold ${isCurrentPlayer ? 'text-yellow-300' : 'text-white'}`}>
+            <p className={`font-semibold truncate ${isCurrentPlayer ? 'text-yellow-300' : 'text-white'} text-sm sm:text-base`}>
               {player.name} {isCurrentPlayer && '(You)'}
             </p>
             
             {player.isLocked && (
-              <Lock className="text-indigo-400 h-4 w-4 ml-2" />
+              <Lock className="text-indigo-400 h-3 w-3 sm:h-4 sm:w-4 ml-1 sm:ml-2 flex-shrink-0" />
             )}
           </div>
           
-          {/* Role info - Only show for current player or locked players */}
           <div className="flex items-center">
             {isCurrentPlayer && player.role ? (
-              <div className={`text-sm flex items-center ${roleInfo?.color}`}>
+              <div className={`text-xs sm:text-sm flex items-center ${roleInfo?.color}`}>
                 {getRoleIcon(player.role)}
-                <span className="ml-1">{roleInfo?.name}</span>
+                <span className="ml-1 truncate">{roleInfo?.name}</span>
               </div>
             ) : player.isLocked ? (
-              <div className={`text-sm flex items-center ${roleInfo?.color}`}>
+              <div className={`text-xs sm:text-sm flex items-center ${roleInfo?.color}`}>
                 {getRoleIcon(player.role as string)}
-                <span className="ml-1">{roleInfo?.name}</span>
+                <span className="ml-1 truncate">{roleInfo?.name}</span>
               </div>
             ) : (
-              <p className="text-sm text-purple-400">
+              <p className="text-xs sm:text-sm text-purple-400">
                 {player.isCurrentTurn ? 'Current Turn' : 'Role Hidden'}
               </p>
             )}
           </div>
         </div>
         
-        {/* Selection indicator */}
         {isSelected && (
-          <div className="w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-400 rounded-full flex items-center justify-center flex-shrink-0 ml-2">
             <span className="text-purple-900 text-xs font-bold">✓</span>
           </div>
         )}
