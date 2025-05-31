@@ -12,9 +12,10 @@ import { generateId } from '../utils/helpers';
 
 const PLAYER_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 const REFRESH_INTERVAL = 3 * 1000; // Refresh every 3 seconds
-const MAX_RETRIES = 15; // Increased retries
-const RETRY_DELAY = 300; // Decreased delay between retries
+const MAX_RETRIES = 15; // Maximum retries for joining game
+const RETRY_DELAY = 300; // Delay between retries in milliseconds
 const GAME_START_DELAY = 2000; // Wait 2 seconds before starting game
+const LOCK_TIMEOUT = 10000; // Lock timeout for game creation
 
 const QuickPlayPage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
@@ -75,6 +76,37 @@ const QuickPlayPage: React.FC = () => {
       .sort((a, b) => a.timestamp - b.timestamp);
   };
 
+  const acquireGameLock = async (): Promise<boolean> => {
+    const lockRef = ref(database, 'quickPlay/lock');
+    const lockSnapshot = await get(lockRef);
+    const currentLock = lockSnapshot.val();
+    const now = Date.now();
+
+    if (!currentLock || now - currentLock.timestamp > LOCK_TIMEOUT) {
+      await set(lockRef, {
+        userId: user?.id,
+        timestamp: now
+      });
+      
+      // Double-check we got the lock
+      const verifySnapshot = await get(lockRef);
+      const verifyLock = verifySnapshot.val();
+      return verifyLock?.userId === user?.id;
+    }
+
+    return false;
+  };
+
+  const releaseGameLock = async () => {
+    const lockRef = ref(database, 'quickPlay/lock');
+    const lockSnapshot = await get(lockRef);
+    const currentLock = lockSnapshot.val();
+
+    if (currentLock?.userId === user?.id) {
+      await remove(lockRef);
+    }
+  };
+
   const fetchGameInfo = async (retries = MAX_RETRIES): Promise<{ gameId: string } | null> => {
     for (let i = 0; i < retries; i++) {
       const gameInfoSnapshot = await get(ref(database, 'quickPlay/gameInfo'));
@@ -110,74 +142,74 @@ const QuickPlayPage: React.FC = () => {
     if (!playerName || !user || !isJoining) return;
 
     const quickPlayRef = ref(database, 'quickPlay/players');
-    const gameInfoRef = ref(database, 'quickPlay/gameInfo');
     let gameJoined = false;
     let cleanup = false;
     let gameStartTimeout: NodeJS.Timeout;
-    let joinAttempts = 0;
-    const MAX_JOIN_ATTEMPTS = 5;
 
     const handleGameStart = async (activePlayers: any[]) => {
       if (gameJoined || cleanup || activePlayers.length < 6) return;
 
-      const isFirstPlayer = activePlayers[0].userId === user.id;
-      
+      const hasLock = await acquireGameLock();
+      if (!hasLock) return;
+
       try {
-        if (isFirstPlayer) {
-          // Create new game
-          const newGameId = await createGame(playerName);
-          if (!newGameId) throw new Error('Failed to create game');
+        // Verify we still have 6 players after acquiring lock
+        const currentSnapshot = await get(quickPlayRef);
+        const currentPlayers = getUniqueActivePlayers(currentSnapshot.val() || {});
+        if (currentPlayers.length < 6) {
+          await releaseGameLock();
+          return;
+        }
 
-          // Update game info for other players
-          await set(gameInfoRef, {
-            gameId: newGameId,
-            hostId: user.id,
-            timestamp: Date.now(),
-            players: activePlayers.map(p => p.name).slice(0, 6)
-          });
+        // Create new game
+        const newGameId = await createGame(playerName);
+        if (!newGameId) throw new Error('Failed to create game');
 
-          // Wait for other players to join
-          await sleep(GAME_START_DELAY);
-          
+        // Update game info for other players
+        const gameInfoRef = ref(database, 'quickPlay/gameInfo');
+        await set(gameInfoRef, {
+          gameId: newGameId,
+          hostId: user.id,
+          timestamp: Date.now(),
+          players: currentPlayers.map(p => p.name).slice(0, 6)
+        });
+
+        // Wait for other players to join
+        await sleep(GAME_START_DELAY);
+        
+        gameJoined = true;
+        setGameId(newGameId);
+        navigate(`/game/${newGameId}`);
+
+        // Cleanup quick play data after delay
+        gameStartTimeout = setTimeout(async () => {
+          if (!cleanup) {
+            await remove(ref(database, 'quickPlay'));
+          }
+        }, 5000);
+      } catch (error) {
+        console.error('Error in game creation:', error);
+      } finally {
+        await releaseGameLock();
+      }
+    };
+
+    const handleJoinGame = async () => {
+      try {
+        const gameInfo = await fetchGameInfo();
+        if (!gameInfo?.gameId) return false;
+
+        const joined = await joinGame(gameInfo.gameId, playerName);
+        if (joined) {
           gameJoined = true;
-          setGameId(newGameId);
-          navigate(`/game/${newGameId}`);
-
-          // Cleanup quick play data after delay
-          gameStartTimeout = setTimeout(async () => {
-            if (!cleanup) {
-              await remove(ref(database, 'quickPlay'));
-            }
-          }, 5000);
-        } else {
-          // Wait for game to be created
-          await sleep(GAME_START_DELAY);
-          
-          const gameInfo = await fetchGameInfo();
-          if (!gameInfo?.gameId) {
-            joinAttempts++;
-            if (joinAttempts >= MAX_JOIN_ATTEMPTS) {
-              throw new Error('Failed to get game information after multiple attempts');
-            }
-            return;
-          }
-
-          // Try to join the game
-          const joined = await joinGame(gameInfo.gameId, playerName);
-          if (joined) {
-            gameJoined = true;
-            setGameId(gameInfo.gameId);
-            navigate(`/game/${gameInfo.gameId}`);
-          } else {
-            throw new Error('Failed to join game');
-          }
+          setGameId(gameInfo.gameId);
+          navigate(`/game/${gameInfo.gameId}`);
+          return true;
         }
       } catch (error) {
-        console.error('Error in game creation/joining:', error);
-        setNameError('Error joining game. Please try again.');
-        setIsJoining(false);
-        gameJoined = false;
+        console.error('Error joining game:', error);
       }
+      return false;
     };
 
     const unsubscribe = onValue(quickPlayRef, async (snapshot) => {
@@ -188,7 +220,13 @@ const QuickPlayPage: React.FC = () => {
       setWaitingPlayers(activePlayers.length);
 
       if (activePlayers.length >= 6) {
-        await handleGameStart(activePlayers);
+        const playerIndex = activePlayers.findIndex(p => p.userId === user.id);
+        
+        if (playerIndex === 0) {
+          await handleGameStart(activePlayers);
+        } else if (playerIndex > 0) {
+          await handleJoinGame();
+        }
       }
     });
 
@@ -219,7 +257,7 @@ const QuickPlayPage: React.FC = () => {
       clearTimeout(gameStartTimeout);
       unsubscribe();
       
-      // Remove all entries for this user
+      // Remove player from queue and release lock
       if (user) {
         get(quickPlayRef).then(snapshot => {
           const players = snapshot.val() || {};
@@ -229,6 +267,7 @@ const QuickPlayPage: React.FC = () => {
             }
           });
         });
+        releaseGameLock().catch(console.error);
       }
     };
   }, [playerName, user, isJoining, createGame, joinGame, navigate]);
