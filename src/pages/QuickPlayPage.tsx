@@ -12,6 +12,8 @@ import { generateId } from '../utils/helpers';
 
 const PLAYER_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 const REFRESH_INTERVAL = 60 * 1000; // Refresh every minute
+const MAX_RETRIES = 5; // Maximum number of retries for fetching game info
+const RETRY_DELAY = 1000; // Delay between retries in milliseconds
 
 const QuickPlayPage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
@@ -52,6 +54,24 @@ const QuickPlayPage: React.FC = () => {
 
     return () => clearInterval(cleanupStalePlayersInterval);
   }, [isJoining]);
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const fetchGameInfo = async (retries = MAX_RETRIES): Promise<{ gameId: string } | null> => {
+    for (let i = 0; i < retries; i++) {
+      const gameInfoSnapshot = await get(ref(database, 'quickPlay/gameInfo'));
+      const gameInfo = gameInfoSnapshot.val();
+      
+      if (gameInfo?.gameId) {
+        return gameInfo;
+      }
+      
+      if (i < retries - 1) {
+        await sleep(RETRY_DELAY);
+      }
+    }
+    return null;
+  };
 
   // Main game logic
   useEffect(() => {
@@ -96,11 +116,10 @@ const QuickPlayPage: React.FC = () => {
             }
           }, 5000);
         } else {
-          const gameInfoSnapshot = await get(gameInfoRef);
-          const gameInfo = gameInfoSnapshot.val();
+          const gameInfo = await fetchGameInfo();
           
-          if (!gameInfo || !gameInfo.gameId) {
-            throw new Error('Game ID not found');
+          if (!gameInfo) {
+            throw new Error('Game ID not found after multiple retries');
           }
 
           const joined = await joinGame(gameInfo.gameId, playerName);
