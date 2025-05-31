@@ -79,11 +79,19 @@ const QuickPlayPage: React.FC = () => {
     const activePlayersMap = new Map();
 
     Object.entries(players).forEach(([id, player]: [string, any]) => {
+      // Only consider players that have been active within the timeout period
       if (now - player.timestamp < PLAYER_TIMEOUT) {
-        // Only keep the most recent entry for each userId
-        if (!activePlayersMap.has(player.userId) || 
-            activePlayersMap.get(player.userId).timestamp < player.timestamp) {
-          activePlayersMap.set(player.userId, {
+        // If this userId already exists in our map, only keep the most recent entry
+        const existingPlayer = activePlayersMap.get(player.userId);
+        if (!existingPlayer || existingPlayer.timestamp < player.timestamp) {
+          // Remove any existing entries for this userId
+          for (const [mapId, mapPlayer] of activePlayersMap.entries()) {
+            if (mapPlayer.userId === player.userId && mapId !== id) {
+              activePlayersMap.delete(mapId);
+            }
+          }
+          // Add the new entry
+          activePlayersMap.set(id, {
             ...player,
             id
           });
@@ -166,7 +174,9 @@ const QuickPlayPage: React.FC = () => {
       const players = snapshot.val() || {};
       const activePlayers = getUniqueActivePlayers(players);
       
-      setWaitingPlayers(activePlayers.length);
+      // Update waiting players count, excluding the current user's duplicate entries
+      const uniquePlayerCount = new Set(activePlayers.map(p => p.userId)).size;
+      setWaitingPlayers(uniquePlayerCount);
 
       if (activePlayers.length >= 6) {
         await handleGameStart(activePlayers);
@@ -286,7 +296,6 @@ const QuickPlayPage: React.FC = () => {
                 disabled={isJoining}
               >
                 {isJoining ? (
-                
                   <span className="flex items-center justify-center">
                     <Loader className="animate-spin h-5 w-5 mr-2" />
                     Finding Players ({waitingPlayers}/6)
