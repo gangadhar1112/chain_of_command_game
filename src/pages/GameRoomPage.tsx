@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { Heart, Crown, Briefcase, Shield, BadgeAlert, Footprints, Users, Clock, Award, HelpCircle, XCircle, Lock, CheckCircle2, XCircle as XCircle2 } from 'lucide-react';
+import { Heart, Crown, Building2, Shield, Siren, Footprints, Users, Clock, Award, HelpCircle, XCircle, Lock, CheckCircle2, XCircle as XCircle2 } from 'lucide-react';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import PlayerCard from '../components/PlayerCard';
@@ -44,9 +44,9 @@ const GameRoomPage: React.FC = () => {
     switch (role) {
       case 'king': return <Crown className="h-6 w-6" />;
       case 'queen': return <Heart className="h-6 w-6" />;
-      case 'minister': return <Briefcase className="h-6 w-6" />;
+      case 'minister': return <Building2 className="h-6 w-6" />;
       case 'soldier': return <Shield className="h-6 w-6" />;
-      case 'police': return <BadgeAlert className="h-6 w-6" />;
+      case 'police': return <Siren className="h-6 w-6" />;
       case 'thief': return <Footprints className="h-6 w-6" />;
       default: return <HelpCircle className="h-6 w-6" />;
     }

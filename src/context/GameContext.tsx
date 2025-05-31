@@ -43,7 +43,7 @@ const roleInfoMap: Record<Role, RoleInfo> = {
   },
   minister: {
     name: 'Minister',
-    icon: 'Briefcase',
+    icon: 'Building2',
     color: 'text-blue-500',
     description: 'Seeks the Soldier',
     points: 7,
@@ -59,7 +59,7 @@ const roleInfoMap: Record<Role, RoleInfo> = {
   },
   police: {
     name: 'Police',
-    icon: 'BadgeAlert',
+    icon: 'Siren',
     color: 'text-indigo-500',
     description: 'Seeks the Thief',
     points: 4,
@@ -120,17 +120,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!gameId) return;
 
     const gameRef = ref(database, `games/${gameId}`);
-    onValue(gameRef, (snapshot) => {
+    const unsubscribe = onValue(gameRef, async (snapshot) => {
       const data = snapshot.val();
-      if (data) {
-        setPlayers(data.players || []);
-        setGameState(data.gameState);
-        
-        if (currentPlayer) {
-          const updatedCurrentPlayer = data.players?.find((p: Player) => p.id === currentPlayer.id);
-          if (updatedCurrentPlayer) {
-            setCurrentPlayer(updatedCurrentPlayer);
-          }
+      
+      if (!data) {
+        setGameState('waiting');
+        setPlayers([]);
+        setCurrentPlayer(null);
+        setGameId(null);
+        setIsHost(false);
+        return;
+      }
+
+      setGameState(data.gameState);
+      setPlayers(data.players || []);
+      
+      if (currentPlayer) {
+        const updatedCurrentPlayer = data.players?.find((p: Player) => p.id === currentPlayer.id);
+        if (updatedCurrentPlayer) {
+          setCurrentPlayer(updatedCurrentPlayer);
+        } else {
+          setCurrentPlayer(null);
+          setGameId(null);
+          setIsHost(false);
         }
       }
     });
@@ -139,6 +151,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       off(gameRef);
     };
   }, [gameId, currentPlayer]);
+
+  useEffect(() => {
+    if (!gameId || !user) return;
+
+    const gameRef = ref(database, `games/${gameId}`);
+    const heartbeatInterval = setInterval(async () => {
+      const snapshot = await get(gameRef);
+      if (snapshot.exists()) {
+        await set(gameRef, {
+          ...snapshot.val(),
+          lastHeartbeat: Date.now(),
+        });
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+    };
+  }, [gameId, user]);
 
   const saveGameState = useCallback(async (
     gameId: string,
@@ -150,9 +181,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       gameId,
       players,
       gameState,
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      lastHeartbeat: Date.now(),
     });
-  }, []);
+
+    if (user) {
+      const userGameRef = ref(database, `userGames/${user.id}/${gameId}`);
+      await set(userGameRef, {
+        joinedAt: Date.now(),
+        lastActive: Date.now(),
+      });
+    }
+  }, [user]);
 
   const getRoleInfo = useCallback((role: Role): RoleInfo => {
     return roleInfoMap[role];
@@ -322,7 +362,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         icon: '🎯',
       });
     } else {
-      // Trigger vibration if available
       if (navigator.vibrate) {
         navigator.vibrate(200);
       }
