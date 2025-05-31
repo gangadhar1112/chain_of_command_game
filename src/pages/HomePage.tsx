@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Crown, Users, Trophy, Star, ChevronRight, LogOut, UserX } from 'lucide-react';
+import { Crown, Users, Trophy, Star, ChevronRight, LogOut, UserX, Heart, Briefcase, Shield, BadgeAlert, Footprints, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
@@ -29,6 +29,15 @@ const HomePage: React.FC = () => {
     }
   };
 
+  const chainRoles = [
+    { name: 'King', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-900/30', points: 10 },
+    { name: 'Queen', icon: Heart, color: 'text-pink-400', bg: 'bg-pink-900/30', points: 9 },
+    { name: 'Minister', icon: Briefcase, color: 'text-blue-400', bg: 'bg-blue-900/30', points: 7 },
+    { name: 'Soldier', icon: Shield, color: 'text-green-400', bg: 'bg-green-900/30', points: 6 },
+    { name: 'Police', icon: BadgeAlert, color: 'text-indigo-400', bg: 'bg-indigo-900/30', points: 4 },
+    { name: 'Thief', icon: Footprints, color: 'text-red-400', bg: 'bg-red-900/30', points: 0 },
+  ];
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -36,7 +45,7 @@ const HomePage: React.FC = () => {
       <main className="flex-1 container mx-auto px-4 py-8 flex flex-col items-center justify-center">
         {user && (
           <div className="w-full max-w-3xl mb-4 flex justify-end gap-2">
-            <Button color="secondary\" size="small\" onClick={handleLogout}>
+            <Button color="secondary" size="small" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-1" />
               Sign Out
             </Button>
@@ -56,6 +65,37 @@ const HomePage: React.FC = () => {
             <p className="text-purple-200 text-lg md:text-xl">
               A royal game of deduction and strategy
             </p>
+          </div>
+
+          {/* Chain of Command Diagram */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-white mb-6 text-center">The Royal Chain</h2>
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 via-indigo-900/20 to-purple-900/20 rounded-lg" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 relative">
+                {chainRoles.map((role, index) => (
+                  <div key={role.name} className="relative">
+                    <div className={`${role.bg} rounded-lg p-4 border border-purple-700/50 text-center relative z-10`}>
+                      <div className="flex justify-center mb-2">
+                        <role.icon className={`${role.color} h-8 w-8`} />
+                      </div>
+                      <h3 className={`${role.color} font-bold text-lg mb-1`}>{role.name}</h3>
+                      <p className="text-purple-200 text-sm mb-2">{role.points} points</p>
+                      {index < chainRoles.length - 1 && (
+                        <div className="hidden lg:block absolute -right-4 top-1/2 transform -translate-y-1/2 z-20">
+                          <ArrowRight className="text-purple-400 h-6 w-6" />
+                        </div>
+                      )}
+                    </div>
+                    {index < chainRoles.length - 1 && (
+                      <div className="lg:hidden flex justify-center my-2">
+                        <ArrowRight className="text-purple-400 h-6 w-6 transform rotate-90 sm:rotate-0" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
