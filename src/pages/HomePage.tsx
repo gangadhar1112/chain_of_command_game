@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Crown, Users, Trophy, Star, ChevronRight, Heart, Building2, Shield, Siren, Footprints, ArrowRight, ChevronDown, ChevronUp, PlayCircle } from 'lucide-react';
+import { Crown, Users, Trophy, Star, ChevronRight, Heart, Building2, Shield, Siren, Footprints, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import Header from '../components/Header';
 import Button from '../components/Button';
 
@@ -16,10 +16,6 @@ const HomePage: React.FC = () => {
     { name: 'Police', icon: Siren, color: 'text-indigo-400', bg: 'bg-indigo-900/30', points: 4 },
     { name: 'Thief', icon: Footprints, color: 'text-red-400', bg: 'bg-red-900/30', points: 0 },
   ];
-
-  const handleQuickPlay = () => {
-    navigate('/quick-play');
-  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -141,12 +137,8 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button color="primary" size="large" onClick={handleQuickPlay}>
-              <PlayCircle className="mr-2 h-5 w-5" />
-              Quick Game
-            </Button>
             <Link to="/create">
-              <Button color="secondary" size="large">
+              <Button color="primary" size="large">
                 Create Game
                 <ChevronRight className="ml-1 h-5 w-5" />
               </Button>

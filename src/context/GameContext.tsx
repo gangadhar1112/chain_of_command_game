@@ -112,6 +112,45 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastGuessResult, setLastGuessResult] = useState<{ correct: boolean; message: string } | null>(null);
   const { user } = useAuth();
 
+  // Load saved game session on mount
+  useEffect(() => {
+    const savedGameId = localStorage.getItem('currentGameId');
+    const savedPlayerId = localStorage.getItem('currentPlayerId');
+    
+    if (savedGameId && savedPlayerId && user) {
+      // Verify game still exists and player is still in it
+      const gameRef = ref(database, `games/${savedGameId}`);
+      get(gameRef).then((snapshot) => {
+        const gameData = snapshot.val();
+        if (gameData) {
+          const player = gameData.players?.find((p: Player) => p.id === savedPlayerId && p.userId === user.id);
+          if (player) {
+            setGameId(savedGameId);
+            setCurrentPlayer(player);
+            setPlayers(gameData.players || []);
+            setGameState(gameData.gameState);
+            setIsHost(player.isHost);
+          } else {
+            // Clear invalid session
+            localStorage.removeItem('currentGameId');
+            localStorage.removeItem('currentPlayerId');
+          }
+        }
+      });
+    }
+  }, [user]);
+
+  // Save game session when it changes
+  useEffect(() => {
+    if (gameId && currentPlayer) {
+      localStorage.setItem('currentGameId', gameId);
+      localStorage.setItem('currentPlayerId', currentPlayer.id);
+    } else {
+      localStorage.removeItem('currentGameId');
+      localStorage.removeItem('currentPlayerId');
+    }
+  }, [gameId, currentPlayer]);
+
   const clearGuessResult = useCallback(() => {
     setLastGuessResult(null);
   }, []);
@@ -462,6 +501,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userGamesRef = ref(database, `userGames/${user.id}/${gameId}`);
         remove(userGamesRef).catch(console.error);
       }
+
+      // Clear local storage
+      localStorage.removeItem('currentGameId');
+      localStorage.removeItem('currentPlayerId');
     }
 
     setGameState('waiting');

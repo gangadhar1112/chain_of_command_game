@@ -21,17 +21,29 @@ const GameRoomPage: React.FC = () => {
     leaveGame,
     makeGuess,
     getRoleInfo,
+    joinGame
   } = useGame();
   
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   
-  // Redirect if game ID doesn't match
+  // Handle game state and navigation
   useEffect(() => {
-    if (gameState !== 'waiting' && (!gameId || gameId !== gameId)) {
+    const savedGameId = localStorage.getItem('currentGameId');
+    
+    if (gameState === 'waiting' && gameId && savedGameId === gameId) {
+      // Attempt to rejoin the game
+      const savedPlayerId = localStorage.getItem('currentPlayerId');
+      if (savedPlayerId) {
+        const player = players.find(p => p.id === savedPlayerId);
+        if (player) {
+          joinGame(gameId, player.name);
+        }
+      }
+    } else if (gameState === 'waiting' && (!gameId || gameId !== savedGameId)) {
       navigate('/');
     }
-  }, [gameState, gameId, navigate]);
+  }, [gameState, gameId, navigate, joinGame, players]);
   
   // Handle leaving the game
   const handleLeaveGame = () => {
