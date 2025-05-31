@@ -45,7 +45,7 @@ const HomePage: React.FC = () => {
       <main className="flex-1 container mx-auto px-4 py-8 flex flex-col items-center justify-center">
         {user && (
           <div className="w-full max-w-3xl mb-4 flex justify-end gap-2">
-            <Button color="secondary" size="small" onClick={handleLogout}>
+            <Button color="secondary\" size="small\" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-1" />
               Sign Out
             </Button>
