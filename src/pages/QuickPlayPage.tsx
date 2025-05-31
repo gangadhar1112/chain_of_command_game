@@ -71,14 +71,20 @@ const QuickPlayPage: React.FC = () => {
       return;
     }
 
+    if (!user) {
+      setNameError('You must be signed in to join quick play');
+      navigate('/signin', { state: { from: '/quick-play' } });
+      return;
+    }
+
     setIsJoining(true);
 
     try {
       // Add player to quick play queue
-      const quickPlayRef = ref(database, `quickPlay/${user?.uid}`);
+      const quickPlayRef = ref(database, `quickPlay/${user.id}`);
       await set(quickPlayRef, {
         name: playerName.trim(),
-        userId: user?.uid,
+        userId: user.id,
         timestamp: Date.now()
       });
     } catch (error) {
