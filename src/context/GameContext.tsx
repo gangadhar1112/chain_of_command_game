@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { ref, set, get, onValue, off } from 'firebase/database';
+import { ref, set, get, onValue, off, remove } from 'firebase/database';
 import { database } from '../config/firebase';
 import { useAuth } from './AuthContext';
 import { Player, GameState, Role, RoleInfo } from '../types/gameTypes';
@@ -358,9 +358,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         saveGameState(gameId, updatedPlayers, gameState);
       } else {
+        // Delete the game data when the last player leaves
         const gameRef = ref(database, `games/${gameId}`);
-        set(gameRef, null);
+        remove(gameRef).catch(console.error);
       }
+
+      // Clear user's game data
+      const userGamesRef = ref(database, `userGames/${user?.id}/${gameId}`);
+      remove(userGamesRef).catch(console.error);
     }
 
     setGameState('waiting');
@@ -368,7 +373,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPlayers([]);
     setGameId(null);
     setIsHost(false);
-  }, [gameId, currentPlayer, players, gameState, saveGameState]);
+  }, [gameId, currentPlayer, players, gameState, saveGameState, user?.id]);
 
   return (
     <GameContext.Provider

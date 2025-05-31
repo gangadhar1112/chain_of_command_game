@@ -1,15 +1,52 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Crown, Users, Trophy, Star, ChevronRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Crown, Users, Trophy, Star, ChevronRight, LogOut, UserX } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
 
 const HomePage: React.FC = () => {
+  const { user, logout, deleteAccount } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/signin');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      try {
+        await deleteAccount();
+        navigate('/signin');
+      } catch (error) {
+        console.error('Delete account error:', error);
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       
       <main className="flex-1 container mx-auto px-4 py-8 flex flex-col items-center justify-center">
+        {user && (
+          <div className="w-full max-w-3xl mb-4 flex justify-end gap-2">
+            <Button color="secondary\" size="small\" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-1" />
+              Sign Out
+            </Button>
+            <Button color="danger" size="small" onClick={handleDeleteAccount}>
+              <UserX className="h-4 w-4 mr-1" />
+              Delete Account
+            </Button>
+          </div>
+        )}
+
         <div className="max-w-3xl w-full bg-purple-800/50 backdrop-blur-sm rounded-xl p-6 md:p-8 shadow-lg border border-purple-700/50">
           <div className="text-center mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 flex items-center justify-center">

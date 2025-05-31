@@ -7,9 +7,11 @@ import {
   User as FirebaseUser,
   setPersistence,
   browserLocalPersistence,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  deleteUser
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { ref, remove } from 'firebase/database';
+import { auth, database } from '../config/firebase';
 
 interface User {
   id: string;
@@ -23,6 +25,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -32,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => {},
   logout: async () => {},
   resetPassword: async () => {},
+  deleteAccount: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -103,6 +107,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteAccount = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      // Delete user's game data
+      if (user) {
+        const userGamesRef = ref(database, `userGames/${user.id}`);
+        await remove(userGamesRef);
+      }
+
+      // Delete user account
+      await deleteUser(auth.currentUser);
+      setUser(null);
+    } catch (error) {
+      console.error('Delete account error:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -110,7 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signUp, 
       signIn, 
       logout,
-      resetPassword 
+      resetPassword,
+      deleteAccount
     }}>
       {children}
     </AuthContext.Provider>
