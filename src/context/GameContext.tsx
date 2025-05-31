@@ -249,38 +249,73 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) throw new Error('Must be logged in to join a game');
 
     const gameRef = ref(database, `games/${gameId}`);
-    const snapshot = await get(gameRef);
-    const gameData = snapshot.val();
+    
+    try {
+      // Use transaction to prevent race conditions
+      const snapshot = await get(gameRef);
+      const gameData = snapshot.val();
 
-    if (!gameData || gameData.gameState === 'playing' || gameData.gameState === 'completed') {
+      // Validate game exists and is in correct state
+      if (!gameData) {
+        console.error('Game not found');
+        return false;
+      }
+
+      if (gameData.gameState !== 'lobby') {
+        console.error('Game is not in lobby state');
+        return false;
+      }
+
+      const currentPlayers = gameData.players || [];
+      
+      // Check if player is already in game
+      const existingPlayer = currentPlayers.find(
+        (p: Player) => p.userId === user.id
+      );
+      
+      if (existingPlayer) {
+        setGameId(gameId);
+        setPlayers(currentPlayers);
+        setCurrentPlayer(existingPlayer);
+        setIsHost(existingPlayer.isHost);
+        setGameState(gameData.gameState);
+        return true;
+      }
+
+      // Validate player count
+      if (currentPlayers.length >= 6) {
+        console.error('Game is full');
+        return false;
+      }
+
+      const playerId = generateId(8);
+      const newPlayer: Player = {
+        id: playerId,
+        name: playerName.trim(),
+        role: null,
+        isHost: false,
+        isLocked: false,
+        isCurrentTurn: false,
+        userId: user.id,
+      };
+
+      const updatedPlayers = [...currentPlayers, newPlayer];
+
+      // Update game state
+      await saveGameState(gameId, updatedPlayers, gameData.gameState);
+      
+      // Update local state
+      setGameId(gameId);
+      setPlayers(updatedPlayers);
+      setCurrentPlayer(newPlayer);
+      setIsHost(false);
+      setGameState(gameData.gameState);
+
+      return true;
+    } catch (error) {
+      console.error('Error joining game:', error);
       return false;
     }
-
-    if (gameData.players && gameData.players.length >= 6) {
-      return false;
-    }
-
-    const playerId = generateId(8);
-    const newPlayer: Player = {
-      id: playerId,
-      name: playerName,
-      role: null,
-      isHost: false,
-      isLocked: false,
-      isCurrentTurn: false,
-      userId: user.id,
-    };
-    
-    const updatedPlayers = [...(gameData.players || []), newPlayer];
-    
-    setGameId(gameId);
-    setPlayers(updatedPlayers);
-    setCurrentPlayer(newPlayer);
-    setIsHost(false);
-    setGameState(gameData.gameState);
-    
-    await saveGameState(gameId, updatedPlayers, gameData.gameState);
-    return true;
   }, [user, saveGameState]);
 
   const startGame = useCallback(() => {
