@@ -15,6 +15,7 @@ const QuickPlayPage: React.FC = () => {
   const [nameError, setNameError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [waitingPlayers, setWaitingPlayers] = useState(0);
+  const [gameId, setGameId] = useState<string | null>(null);
   
   const { joinGame, createGame } = useGame();
   const { user, loading } = useAuth();
@@ -30,52 +31,69 @@ const QuickPlayPage: React.FC = () => {
     if (!playerName || !user || !isJoining) return;
 
     const quickPlayRef = ref(database, 'quickPlay');
+    let gameCreated = false;
     
     const unsubscribe = onValue(quickPlayRef, async (snapshot) => {
+      if (gameCreated) return;
+
       const players = snapshot.val() || {};
-      const currentPlayers = Object.entries(players)
-        .filter(([_, player]: [string, any]) => 
+      const currentPlayers = Object.values(players)
+        .filter((player: any) => 
           Date.now() - player.timestamp < 30000 // Remove stale players (30s timeout)
         )
-        .map(([id, player]: [string, any]) => ({
-          id,
-          ...player
-        }));
+        .sort((a: any, b: any) => a.timestamp - b.timestamp);
 
       setWaitingPlayers(currentPlayers.length);
 
-      // Sort players by timestamp to ensure consistent order
-      currentPlayers.sort((a, b) => a.timestamp - b.timestamp);
-
       if (currentPlayers.length >= 6) {
-        try {
-          // First player creates the game
-          const isFirstPlayer = currentPlayers[0].userId === user.id;
-          const gameId = generateId(6);
+        gameCreated = true;
+        const isFirstPlayer = currentPlayers[0].userId === user.id;
+        const newGameId = generateId(6);
+        setGameId(newGameId);
 
+        try {
           if (isFirstPlayer) {
-            // Create game as host
+            // Create new game
             createGame(playerName);
             
-            // Wait a bit for game creation
-            await new Promise(resolve => setTimeout(resolve, 500));
-
+            // Wait for game creation
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
             // Clear quick play queue
             await set(quickPlayRef, null);
           } else {
-            // Other players join the game
-            await joinGame(gameId, playerName);
+            // Join existing game
+            await joinGame(newGameId, playerName);
           }
 
           // Navigate to game
-          navigate(`/game/${gameId}`);
+          navigate(`/game/${newGameId}`);
         } catch (error) {
-          console.error('Error starting game:', error);
+          console.error('Error in game creation/joining:', error);
           setNameError('Error starting game. Please try again.');
           setIsJoining(false);
+          gameCreated = false;
         }
       }
     });
+
+    // Add player to queue
+    const addToQueue = async () => {
+      try {
+        const playerRef = ref(database, `quickPlay/${user.id}`);
+        await set(playerRef, {
+          name: playerName.trim(),
+          userId: user.id,
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        console.error('Error adding to queue:', error);
+        setNameError('Error joining queue. Please try again.');
+        setIsJoining(false);
+      }
+    };
+
+    addToQueue();
 
     // Cleanup function
     return () => {
@@ -102,20 +120,6 @@ const QuickPlayPage: React.FC = () => {
     }
 
     setIsJoining(true);
-
-    try {
-      // Add player to quick play queue
-      const quickPlayRef = ref(database, `quickPlay/${user.id}`);
-      await set(quickPlayRef, {
-        name: playerName.trim(),
-        userId: user.id,
-        timestamp: Date.now()
-      });
-    } catch (error) {
-      console.error('Error joining quick play:', error);
-      setNameError('Error joining quick play. Please try again.');
-      setIsJoining(false);
-    }
   };
 
   if (loading) {
