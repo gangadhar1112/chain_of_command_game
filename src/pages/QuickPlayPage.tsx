@@ -76,7 +76,7 @@ const QuickPlayPage: React.FC = () => {
     try {
       // Add player to quick play queue
       const quickPlayRef = ref(database, `quickPlay/${user?.uid}`);
-      await set({
+      await set(quickPlayRef, {
         name: playerName.trim(),
         userId: user?.uid,
         timestamp: Date.now()
