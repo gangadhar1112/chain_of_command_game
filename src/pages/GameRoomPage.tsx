@@ -131,11 +131,11 @@ const GameRoomPage: React.FC = () => {
                 {isHost && (
                   <Button
                     color="primary"
-                    disabled={players.length < 3}
+                    disabled={players.length < 6}
                     onClick={startGame}
                   >
-                    {players.length < 3 
-                      ? 'Need at least 3 players' 
+                    {players.length < 6 
+                      ? `Need ${6 - players.length} more player${players.length === 5 ? '' : 's'}` 
                       : 'Start Game'}
                   </Button>
                 )}
