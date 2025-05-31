@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { GameProvider } from './context/GameContext';
 import HomePage from './pages/HomePage';
@@ -28,6 +29,17 @@ function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </div>
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: '#1e1b4b',
+                color: '#fff',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+              },
+            }}
+          />
         </GameProvider>
       </AuthProvider>
     </Router>

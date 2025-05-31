@@ -1,6 +1,7 @@
 import React from 'react';
 import { Player, Role, RoleInfo } from '../types/gameTypes';
 import { User, Crown, Lock } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface PlayerCardProps {
   player: Player;
@@ -43,7 +44,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
     : '';
     
   return (
-    <div
+    <motion.div
+      whileTap={canSelect ? { scale: 0.95 } : {}}
       className={`
         rounded-lg p-3 ${cardBgClass} ${cardBorderClass} ${hoverClass}
         relative overflow-hidden transition-all duration-300
@@ -102,7 +104,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

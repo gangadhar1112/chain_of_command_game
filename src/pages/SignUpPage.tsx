@@ -11,6 +11,7 @@ const SignUpPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
@@ -20,9 +21,8 @@ const SignUpPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    // Validate inputs
-    if (!email.trim()) {
-      setError('Email is required');
+    if (!email.trim() || !name.trim()) {
+      setError('Email and name are required');
       return;
     }
 
@@ -43,7 +43,7 @@ const SignUpPage: React.FC = () => {
 
     try {
       setLoading(true);
-      await signUp(email.trim(), password);
+      await signUp(email.trim(), password, name.trim());
       navigate('/');
     } catch (err) {
       console.error('Signup error:', err);
@@ -57,12 +57,6 @@ const SignUpPage: React.FC = () => {
             break;
           case 'auth/weak-password':
             setError('Password is too weak - must be at least 6 characters');
-            break;
-          case 'auth/network-request-failed':
-            setError('Network error. Please check your internet connection.');
-            break;
-          case 'auth/too-many-requests':
-            setError('Too many attempts. Please try again later.');
             break;
           default:
             setError(`Failed to create account: ${err.message}`);
@@ -93,6 +87,19 @@ const SignUpPage: React.FC = () => {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
+              label="Name"
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError('');
+              }}
+              placeholder="Enter your name"
+              disabled={loading}
+            />
+
+            <Input
               label="Email"
               id="email"
               type="email"
@@ -103,7 +110,6 @@ const SignUpPage: React.FC = () => {
               }}
               placeholder="Enter your email"
               disabled={loading}
-              error={error && error.includes('email') ? error : ''}
             />
             
             <Input
@@ -117,7 +123,6 @@ const SignUpPage: React.FC = () => {
               }}
               placeholder="Enter your password"
               disabled={loading}
-              error={error && error.includes('Password') ? error : ''}
             />
             
             <Input
@@ -131,10 +136,9 @@ const SignUpPage: React.FC = () => {
               }}
               placeholder="Confirm your password"
               disabled={loading}
-              error={error && error.includes('match') ? error : ''}
             />
             
-            {error && !error.includes('email') && !error.includes('Password') && !error.includes('match') && (
+            {error && (
               <p className="text-red-400 text-sm mt-2">{error}</p>
             )}
             
