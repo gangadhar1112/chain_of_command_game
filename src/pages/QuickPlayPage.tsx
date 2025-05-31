@@ -11,10 +11,10 @@ import Input from '../components/Input';
 import { generateId } from '../utils/helpers';
 
 const PLAYER_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
-const REFRESH_INTERVAL = 10 * 1000; // Refresh every 10 seconds
-const MAX_RETRIES = 10; // Increased retries
-const RETRY_DELAY = 500; // Decreased delay between retries
-const GAME_START_DELAY = 3000; // Wait 3 seconds before starting game
+const REFRESH_INTERVAL = 3 * 1000; // Refresh every 3 seconds
+const MAX_RETRIES = 15; // Increased retries
+const RETRY_DELAY = 300; // Decreased delay between retries
+const GAME_START_DELAY = 2000; // Wait 2 seconds before starting game
 
 const QuickPlayPage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
@@ -22,6 +22,7 @@ const QuickPlayPage: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [waitingPlayers, setWaitingPlayers] = useState(0);
   const [gameId, setGameId] = useState<string | null>(null);
+  const [playerId, setPlayerId] = useState<string | null>(null);
   
   const { joinGame, createGame } = useGame();
   const { user, loading } = useAuth();
@@ -88,6 +89,22 @@ const QuickPlayPage: React.FC = () => {
     return null;
   };
 
+  // Keep player alive and visible
+  useEffect(() => {
+    if (!isJoining || !playerId || !user) return;
+
+    const keepAliveInterval = setInterval(async () => {
+      const playerRef = ref(database, `quickPlay/players/${playerId}`);
+      await set(playerRef, {
+        name: playerName.trim(),
+        userId: user.id,
+        timestamp: Date.now()
+      });
+    }, REFRESH_INTERVAL / 2);
+
+    return () => clearInterval(keepAliveInterval);
+  }, [isJoining, playerId, playerName, user]);
+
   // Main game logic
   useEffect(() => {
     if (!playerName || !user || !isJoining) return;
@@ -98,7 +115,7 @@ const QuickPlayPage: React.FC = () => {
     let cleanup = false;
     let gameStartTimeout: NodeJS.Timeout;
     let joinAttempts = 0;
-    const MAX_JOIN_ATTEMPTS = 3;
+    const MAX_JOIN_ATTEMPTS = 5;
 
     const handleGameStart = async (activePlayers: any[]) => {
       if (gameJoined || cleanup || activePlayers.length < 6) return;
@@ -179,12 +196,14 @@ const QuickPlayPage: React.FC = () => {
     const addToQueue = async () => {
       if (!cleanup) {
         try {
-          const playerRef = ref(database, `quickPlay/players/${generateId(8)}`);
+          const newPlayerId = generateId(8);
+          const playerRef = ref(database, `quickPlay/players/${newPlayerId}`);
           await set(playerRef, {
             name: playerName.trim(),
             userId: user.id,
             timestamp: Date.now()
           });
+          setPlayerId(newPlayerId);
         } catch (error) {
           console.error('Error adding to queue:', error);
           setNameError('Error joining queue. Please try again.');
@@ -193,12 +212,10 @@ const QuickPlayPage: React.FC = () => {
       }
     };
 
-    const refreshInterval = setInterval(addToQueue, REFRESH_INTERVAL);
     addToQueue();
 
     return () => {
       cleanup = true;
-      clearInterval(refreshInterval);
       clearTimeout(gameStartTimeout);
       unsubscribe();
       
