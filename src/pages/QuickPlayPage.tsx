@@ -73,6 +73,28 @@ const QuickPlayPage: React.FC = () => {
     return null;
   };
 
+  // Get unique active players
+  const getUniqueActivePlayers = (players: Record<string, any>) => {
+    const now = Date.now();
+    const activePlayersMap = new Map();
+
+    Object.entries(players).forEach(([id, player]: [string, any]) => {
+      if (now - player.timestamp < PLAYER_TIMEOUT) {
+        // Only keep the most recent entry for each userId
+        if (!activePlayersMap.has(player.userId) || 
+            activePlayersMap.get(player.userId).timestamp < player.timestamp) {
+          activePlayersMap.set(player.userId, {
+            ...player,
+            id
+          });
+        }
+      }
+    });
+
+    return Array.from(activePlayersMap.values())
+      .sort((a, b) => a.timestamp - b.timestamp);
+  };
+
   // Main game logic
   useEffect(() => {
     if (!playerName || !user || !isJoining) return;
@@ -83,18 +105,10 @@ const QuickPlayPage: React.FC = () => {
     let cleanup = false;
 
     const handleGameStart = async (activePlayers: any[]) => {
-      if (gameJoined || cleanup) return;
-      
-      const uniquePlayers = activePlayers.reduce((acc: any[], player) => {
-        const exists = acc.some(p => p.userId === player.userId);
-        if (!exists) acc.push(player);
-        return acc;
-      }, []);
-
-      if (uniquePlayers.length < 6) return;
+      if (gameJoined || cleanup || activePlayers.length < 6) return;
       gameJoined = true;
 
-      const isFirstPlayer = uniquePlayers[0].userId === user.id;
+      const isFirstPlayer = activePlayers[0].userId === user.id;
       
       try {
         if (isFirstPlayer) {
@@ -103,7 +117,7 @@ const QuickPlayPage: React.FC = () => {
             gameId: newGameId,
             hostId: user.id,
             timestamp: Date.now(),
-            players: uniquePlayers.slice(0, 6).map(p => p.name)
+            players: activePlayers.slice(0, 6).map(p => p.name)
           });
           
           const gameCreated = createGame(playerName);
@@ -140,21 +154,9 @@ const QuickPlayPage: React.FC = () => {
       if (gameJoined || cleanup) return;
 
       const players = snapshot.val() || {};
-      const activePlayers = Object.entries(players)
-        .filter(([_, player]: [string, any]) => 
-          Date.now() - player.timestamp < PLAYER_TIMEOUT
-        )
-        .map(([id, player]: [string, any]) => ({
-          id,
-          userId: player.userId,
-          name: player.name,
-          timestamp: player.timestamp
-        }))
-        .sort((a, b) => a.timestamp - b.timestamp);
-
-      // Count unique players by userId
-      const uniquePlayerIds = new Set(activePlayers.map(p => p.userId));
-      setWaitingPlayers(uniquePlayerIds.size);
+      const activePlayers = getUniqueActivePlayers(players);
+      
+      setWaitingPlayers(activePlayers.length);
 
       if (activePlayers.length >= 6) {
         await handleGameStart(activePlayers);
@@ -165,7 +167,7 @@ const QuickPlayPage: React.FC = () => {
     const addToQueue = async () => {
       if (!cleanup) {
         try {
-          const playerRef = ref(database, `quickPlay/players/${user.id}`);
+          const playerRef = ref(database, `quickPlay/players/${generateId(8)}`);
           await set(playerRef, {
             name: playerName.trim(),
             userId: user.id,
@@ -186,9 +188,17 @@ const QuickPlayPage: React.FC = () => {
       cleanup = true;
       clearInterval(refreshInterval);
       unsubscribe();
+      
+      // Remove all entries for this user
       if (user) {
-        const playerRef = ref(database, `quickPlay/players/${user.id}`);
-        set(playerRef, null).catch(console.error);
+        get(quickPlayRef).then(snapshot => {
+          const players = snapshot.val() || {};
+          Object.entries(players).forEach(([id, player]: [string, any]) => {
+            if (player.userId === user.id) {
+              set(ref(database, `quickPlay/players/${id}`), null).catch(console.error);
+            }
+          });
+        });
       }
     };
   }, [playerName, user, isJoining, createGame, joinGame, navigate]);
