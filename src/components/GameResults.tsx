@@ -1,6 +1,6 @@
 import React from 'react';
 import { Player, Role, RoleInfo } from '../types/gameTypes';
-import { Trophy, Crown, Medal, Award, ArrowRight, Star, Shield } from 'lucide-react';
+import { Trophy, Crown, Medal, Award, ArrowRight, Star, Shield, Heart, Briefcase, BadgeAlert, Footprints } from 'lucide-react';
 import Button from './Button';
 
 interface GameResultsProps {
@@ -146,8 +146,6 @@ const GameResults: React.FC<GameResultsProps> = ({
 
 // Helper function to get role icon
 const getRoleIcon = (role: string) => {
-  const { Crown, Heart, Briefcase, Shield, BadgeAlert, Footprints } = require('lucide-react');
-  
   switch (role) {
     case 'king': return <Crown className="h-4 w-4 md:h-5 md:w-5" />;
     case 'queen': return <Heart className="h-4 w-4 md:h-5 md:w-5" />;
