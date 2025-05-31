@@ -40,7 +40,7 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             onClick={onClose}
           />
           
@@ -49,7 +49,7 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 20 }}
-            className="fixed right-0 top-0 h-full w-80 bg-purple-900 shadow-xl z-50"
+            className="fixed right-0 top-0 h-full w-80 bg-purple-900 shadow-xl z-50 border-l border-purple-700/50"
           >
             <div className="p-4">
               <div className="flex items-center justify-between mb-6">
