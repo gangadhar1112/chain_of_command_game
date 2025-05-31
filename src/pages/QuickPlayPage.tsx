@@ -30,7 +30,7 @@ const QuickPlayPage: React.FC = () => {
     }
   }, [user, loading, navigate]);
 
-  // Separate effect for cleaning up stale players
+  // Cleanup stale players
   useEffect(() => {
     if (!isJoining) return;
 
@@ -53,6 +53,7 @@ const QuickPlayPage: React.FC = () => {
     return () => clearInterval(cleanupStalePlayersInterval);
   }, [isJoining]);
 
+  // Main game logic
   useEffect(() => {
     if (!playerName || !user || !isJoining) return;
 
@@ -63,9 +64,17 @@ const QuickPlayPage: React.FC = () => {
 
     const handleGameStart = async (activePlayers: any[]) => {
       if (gameJoined || cleanup) return;
+      
+      const uniquePlayers = activePlayers.reduce((acc: any[], player) => {
+        const exists = acc.some(p => p.userId === player.userId);
+        if (!exists) acc.push(player);
+        return acc;
+      }, []);
+
+      if (uniquePlayers.length < 6) return;
       gameJoined = true;
 
-      const isFirstPlayer = activePlayers[0].id === user.id;
+      const isFirstPlayer = uniquePlayers[0].userId === user.id;
       
       try {
         if (isFirstPlayer) {
@@ -74,12 +83,12 @@ const QuickPlayPage: React.FC = () => {
             gameId: newGameId,
             hostId: user.id,
             timestamp: Date.now(),
-            players: activePlayers.map(p => p.name)
+            players: uniquePlayers.slice(0, 6).map(p => p.name)
           });
           
-          await createGame(playerName);
-          setGameId(newGameId);
-          navigate(`/game/${newGameId}`);
+          const gameCreated = createGame(playerName);
+          setGameId(gameCreated);
+          navigate(`/game/${gameCreated}`);
 
           setTimeout(async () => {
             if (!cleanup) {
@@ -94,9 +103,11 @@ const QuickPlayPage: React.FC = () => {
             throw new Error('Game ID not found');
           }
 
-          await joinGame(gameInfo.gameId, playerName);
-          setGameId(gameInfo.gameId);
-          navigate(`/game/${gameInfo.gameId}`);
+          const joined = await joinGame(gameInfo.gameId, playerName);
+          if (joined) {
+            setGameId(gameInfo.gameId);
+            navigate(`/game/${gameInfo.gameId}`);
+          }
         }
       } catch (error) {
         console.error('Error in game creation/joining:', error);
@@ -116,18 +127,18 @@ const QuickPlayPage: React.FC = () => {
         )
         .map(([id, player]: [string, any]) => ({
           id,
-          ...player
+          userId: player.userId,
+          name: player.name,
+          timestamp: player.timestamp
         }))
         .sort((a, b) => a.timestamp - b.timestamp);
 
-      const uniquePlayers = activePlayers.filter((player, index, self) =>
-        index === self.findIndex((p) => p.userId === player.userId)
-      );
+      // Count unique players by userId
+      const uniquePlayerIds = new Set(activePlayers.map(p => p.userId));
+      setWaitingPlayers(uniquePlayerIds.size);
 
-      setWaitingPlayers(uniquePlayers.length);
-
-      if (uniquePlayers.length >= 6) {
-        await handleGameStart(uniquePlayers.slice(0, 6));
+      if (activePlayers.length >= 6) {
+        await handleGameStart(activePlayers);
       }
     });
 
