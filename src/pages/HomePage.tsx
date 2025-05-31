@@ -93,23 +93,27 @@ const HomePage: React.FC = () => {
             <ol className="space-y-3 text-purple-100">
               <li className="flex">
                 <span className="font-bold text-yellow-400 mr-2">1.</span>
-                <span>Each player is secretly assigned a role: King, Queen, Minister, Soldier, Police, or Thief.</span>
+                <span>Each player receives a secret role in the royal hierarchy: King, Queen, Minister, Soldier, Police, or Thief.</span>
               </li>
               <li className="flex">
                 <span className="font-bold text-yellow-400 mr-2">2.</span>
-                <span>Starting with the King, each player must find the next role in the chain.</span>
+                <span>The King starts first and must find the Queen. After the King, each role must find the next role in the chain.</span>
               </li>
               <li className="flex">
                 <span className="font-bold text-yellow-400 mr-2">3.</span>
-                <span>If you guess correctly, both players lock their positions, and the turn passes to the player you found.</span>
+                <span>On your turn, select a player you think has the next role in the chain (e.g., King looks for Queen, Queen for Minister).</span>
               </li>
               <li className="flex">
                 <span className="font-bold text-yellow-400 mr-2">4.</span>
-                <span>If you guess incorrectly, you swap roles with the player you guessed, and your turn continues.</span>
+                <span>If your guess is correct, both you and the player you found are "locked" in your positions. The found player takes the next turn.</span>
               </li>
               <li className="flex">
                 <span className="font-bold text-yellow-400 mr-2">5.</span>
-                <span>The game ends when all players have found their correct positions in the chain.</span>
+                <span>If your guess is wrong, you swap roles with the player you selected. The King (whether original or new) starts the next turn.</span>
+              </li>
+              <li className="flex">
+                <span className="font-bold text-yellow-400 mr-2">6.</span>
+                <span>The game ends when all players except the Thief are locked in their correct positions in the chain.</span>
               </li>
             </ol>
           </div>
