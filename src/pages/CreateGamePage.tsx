@@ -20,7 +20,7 @@ const CreateGamePage: React.FC = () => {
     }
   }, [user, loading, navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!playerName.trim()) {
@@ -28,8 +28,13 @@ const CreateGamePage: React.FC = () => {
       return;
     }
     
-    const gameId = createGame(playerName.trim());
-    navigate(`/game/${gameId}`);
+    try {
+      const gameId = await createGame(playerName.trim());
+      navigate(`/game/${gameId}`);
+    } catch (error) {
+      console.error('Error creating game:', error);
+      setError('Failed to create game. Please try again.');
+    }
   };
 
   if (loading) {

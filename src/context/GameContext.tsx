@@ -14,7 +14,7 @@ interface GameContextType {
   gameId: string | null;
   isHost: boolean;
   lastGuessResult: { correct: boolean; message: string } | null;
-  createGame: (playerName: string) => string;
+  createGame: (playerName: string) => Promise<string>;
   joinGame: (gameId: string, playerName: string) => Promise<boolean>;
   startGame: () => void;
   makeGuess: (targetPlayerId: string) => void;
@@ -84,7 +84,7 @@ const defaultContext: GameContextType = {
   gameId: null,
   isHost: false,
   lastGuessResult: null,
-  createGame: () => '',
+  createGame: () => Promise.resolve(''),
   joinGame: () => Promise.resolve(false),
   startGame: () => {},
   makeGuess: () => {},
@@ -216,7 +216,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   }, []);
 
-  const createGame = useCallback((playerName: string): string => {
+  const createGame = useCallback(async (playerName: string): Promise<string> => {
     if (!user) throw new Error('Must be logged in to create a game');
 
     const newGameId = generateId(6);
@@ -240,7 +240,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsHost(true);
     setGameState('lobby');
     
-    saveGameState(newGameId, newPlayers, 'lobby');
+    await saveGameState(newGameId, newPlayers, 'lobby');
     
     return newGameId;
   }, [user, saveGameState]);

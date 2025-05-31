@@ -120,7 +120,7 @@ const QuickPlayPage: React.FC = () => {
             players: activePlayers.slice(0, 6).map(p => p.name)
           });
           
-          const gameCreated = createGame(playerName);
+          const gameCreated = await createGame(playerName);
           setGameId(gameCreated);
           navigate(`/game/${gameCreated}`);
 
@@ -276,6 +276,7 @@ const QuickPlayPage: React.FC = () => {
                 disabled={isJoining}
               >
                 {isJoining ? (
+                
                   <span className="flex items-center justify-center">
                     <Loader className="animate-spin h-5 w-5 mr-2" />
                     Finding Players ({waitingPlayers}/6)
