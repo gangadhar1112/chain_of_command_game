@@ -11,9 +11,10 @@ import Input from '../components/Input';
 import { generateId } from '../utils/helpers';
 
 const PLAYER_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
-const REFRESH_INTERVAL = 60 * 1000; // Refresh every minute
-const MAX_RETRIES = 5; // Maximum number of retries for fetching game info
-const RETRY_DELAY = 1000; // Delay between retries in milliseconds
+const REFRESH_INTERVAL = 30 * 1000; // Refresh every 30 seconds
+const MAX_RETRIES = 5;
+const RETRY_DELAY = 1000;
+const GAME_START_DELAY = 2000; // Wait 2 seconds before starting game
 
 const QuickPlayPage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
@@ -32,6 +33,8 @@ const QuickPlayPage: React.FC = () => {
     }
   }, [user, loading, navigate]);
 
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
   // Cleanup stale players
   useEffect(() => {
     if (!isJoining) return;
@@ -41,21 +44,34 @@ const QuickPlayPage: React.FC = () => {
       const snapshot = await get(quickPlayRef);
       const players = snapshot.val() || {};
 
-      const stalePlayerIds = Object.entries(players)
-        .filter(([_, player]: [string, any]) => 
-          Date.now() - player.timestamp >= PLAYER_TIMEOUT
-        )
-        .map(([id]) => id);
-
-      for (const id of stalePlayerIds) {
-        await set(ref(database, `quickPlay/players/${id}`), null);
+      const now = Date.now();
+      for (const [id, player] of Object.entries(players)) {
+        if (now - (player as any).timestamp >= PLAYER_TIMEOUT) {
+          await remove(ref(database, `quickPlay/players/${id}`));
+        }
       }
     }, REFRESH_INTERVAL);
 
     return () => clearInterval(cleanupStalePlayersInterval);
   }, [isJoining]);
 
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  const getUniqueActivePlayers = (players: Record<string, any>) => {
+    const now = Date.now();
+    const uniquePlayers = new Map<string, any>();
+
+    // Process players, keeping only the most recent entry for each userId
+    Object.entries(players).forEach(([id, player]) => {
+      if (now - player.timestamp < PLAYER_TIMEOUT) {
+        const existingPlayer = uniquePlayers.get(player.userId);
+        if (!existingPlayer || existingPlayer.timestamp < player.timestamp) {
+          uniquePlayers.set(player.userId, { ...player, id });
+        }
+      }
+    });
+
+    return Array.from(uniquePlayers.values())
+      .sort((a, b) => a.timestamp - b.timestamp);
+  };
 
   const fetchGameInfo = async (retries = MAX_RETRIES): Promise<{ gameId: string } | null> => {
     for (let i = 0; i < retries; i++) {
@@ -66,33 +82,9 @@ const QuickPlayPage: React.FC = () => {
         return gameInfo;
       }
       
-      if (i < retries - 1) {
-        await sleep(RETRY_DELAY);
-      }
+      await sleep(RETRY_DELAY);
     }
     return null;
-  };
-
-  // Get unique active players
-  const getUniqueActivePlayers = (players: Record<string, any>) => {
-    const now = Date.now();
-    const uniquePlayers = new Set();
-    const activePlayersArray = [];
-
-    // First pass: collect all valid players
-    for (const [id, player] of Object.entries(players)) {
-      if (now - player.timestamp < PLAYER_TIMEOUT && !uniquePlayers.has(player.userId)) {
-        uniquePlayers.add(player.userId);
-        activePlayersArray.push({
-          ...player,
-          id,
-          timestamp: player.timestamp
-        });
-      }
-    }
-
-    // Sort by timestamp (earliest first)
-    return activePlayersArray.sort((a, b) => a.timestamp - b.timestamp);
   };
 
   // Main game logic
@@ -103,8 +95,7 @@ const QuickPlayPage: React.FC = () => {
     const gameInfoRef = ref(database, 'quickPlay/gameInfo');
     let gameJoined = false;
     let cleanup = false;
-    let joinAttempts = 0;
-    const MAX_JOIN_ATTEMPTS = 3;
+    let gameStartTimeout: NodeJS.Timeout;
 
     const handleGameStart = async (activePlayers: any[]) => {
       if (gameJoined || cleanup || activePlayers.length < 6) return;
@@ -113,35 +104,42 @@ const QuickPlayPage: React.FC = () => {
       
       try {
         if (isFirstPlayer) {
+          // Create new game
           const newGameId = await createGame(playerName);
-          
-          if (!newGameId) {
-            throw new Error('Failed to create game');
-          }
+          if (!newGameId) throw new Error('Failed to create game');
 
+          // Update game info for other players
           await set(gameInfoRef, {
             gameId: newGameId,
             hostId: user.id,
             timestamp: Date.now(),
-            players: activePlayers.slice(0, 6).map(p => p.name)
+            players: activePlayers.map(p => p.name)
           });
+
+          // Wait for other players to join
+          await sleep(GAME_START_DELAY);
           
           gameJoined = true;
           setGameId(newGameId);
           navigate(`/game/${newGameId}`);
+
+          // Cleanup quick play data after delay
+          gameStartTimeout = setTimeout(async () => {
+            if (!cleanup) {
+              await remove(ref(database, 'quickPlay'));
+            }
+          }, 5000);
         } else {
           // Wait for game to be created
-          await sleep(1000);
+          await sleep(GAME_START_DELAY);
           
           const gameInfo = await fetchGameInfo();
-          if (!gameInfo) {
-            joinAttempts++;
-            if (joinAttempts >= MAX_JOIN_ATTEMPTS) {
-              throw new Error('Failed to join game after multiple attempts');
-            }
-            return; // Try again on next update
+          if (!gameInfo?.gameId) {
+            console.log('Waiting for game creation...');
+            return;
           }
 
+          // Try to join the game
           const joined = await joinGame(gameInfo.gameId, playerName);
           if (joined) {
             gameJoined = true;
@@ -164,7 +162,6 @@ const QuickPlayPage: React.FC = () => {
 
       const players = snapshot.val() || {};
       const activePlayers = getUniqueActivePlayers(players);
-      
       setWaitingPlayers(activePlayers.length);
 
       if (activePlayers.length >= 6) {
@@ -196,6 +193,7 @@ const QuickPlayPage: React.FC = () => {
     return () => {
       cleanup = true;
       clearInterval(refreshInterval);
+      clearTimeout(gameStartTimeout);
       unsubscribe();
       
       // Remove all entries for this user
@@ -204,7 +202,7 @@ const QuickPlayPage: React.FC = () => {
           const players = snapshot.val() || {};
           Object.entries(players).forEach(([id, player]: [string, any]) => {
             if (player.userId === user.id) {
-              set(ref(database, `quickPlay/players/${id}`), null).catch(console.error);
+              remove(ref(database, `quickPlay/players/${id}`)).catch(console.error);
             }
           });
         });
