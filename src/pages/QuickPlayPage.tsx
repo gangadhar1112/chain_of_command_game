@@ -76,30 +76,24 @@ const QuickPlayPage: React.FC = () => {
   // Get unique active players
   const getUniqueActivePlayers = (players: Record<string, any>) => {
     const now = Date.now();
-    const activePlayersMap = new Map();
+    const uniquePlayers = new Map<string, { timestamp: number; data: any }>();
 
+    // First pass: collect the most recent entry for each userId
     Object.entries(players).forEach(([id, player]: [string, any]) => {
-      // Only consider players that have been active within the timeout period
       if (now - player.timestamp < PLAYER_TIMEOUT) {
-        // If this userId already exists in our map, only keep the most recent entry
-        const existingPlayer = activePlayersMap.get(player.userId);
+        const existingPlayer = uniquePlayers.get(player.userId);
         if (!existingPlayer || existingPlayer.timestamp < player.timestamp) {
-          // Remove any existing entries for this userId
-          for (const [mapId, mapPlayer] of activePlayersMap.entries()) {
-            if (mapPlayer.userId === player.userId && mapId !== id) {
-              activePlayersMap.delete(mapId);
-            }
-          }
-          // Add the new entry
-          activePlayersMap.set(id, {
-            ...player,
-            id
+          uniquePlayers.set(player.userId, {
+            timestamp: player.timestamp,
+            data: { ...player, id }
           });
         }
       }
     });
 
-    return Array.from(activePlayersMap.values())
+    // Convert to array and sort by timestamp
+    return Array.from(uniquePlayers.values())
+      .map(entry => entry.data)
       .sort((a, b) => a.timestamp - b.timestamp);
   };
 
@@ -120,24 +114,21 @@ const QuickPlayPage: React.FC = () => {
       
       try {
         if (isFirstPlayer) {
-          // First create the game and wait for it to be fully established
-          const newGameId = generateId(6);
-          const gameCreated = await createGame(playerName);
+          const newGameId = await createGame(playerName);
           
-          if (!gameCreated) {
+          if (!newGameId) {
             throw new Error('Failed to create game');
           }
 
-          // Only after game is created, update the gameInfo for other players
           await set(gameInfoRef, {
-            gameId: gameCreated,
+            gameId: newGameId,
             hostId: user.id,
             timestamp: Date.now(),
             players: activePlayers.slice(0, 6).map(p => p.name)
           });
           
-          setGameId(gameCreated);
-          navigate(`/game/${gameCreated}`);
+          setGameId(newGameId);
+          navigate(`/game/${newGameId}`);
 
           setTimeout(async () => {
             if (!cleanup) {
@@ -145,7 +136,6 @@ const QuickPlayPage: React.FC = () => {
             }
           }, 5000);
         } else {
-          // Add a small delay before joining to ensure host has created the game
           await sleep(1000);
           
           const gameInfo = await fetchGameInfo();
@@ -174,9 +164,8 @@ const QuickPlayPage: React.FC = () => {
       const players = snapshot.val() || {};
       const activePlayers = getUniqueActivePlayers(players);
       
-      // Update waiting players count, excluding the current user's duplicate entries
-      const uniquePlayerCount = new Set(activePlayers.map(p => p.userId)).size;
-      setWaitingPlayers(uniquePlayerCount);
+      // Update waiting players count using the unique players array
+      setWaitingPlayers(activePlayers.length);
 
       if (activePlayers.length >= 6) {
         await handleGameStart(activePlayers);
