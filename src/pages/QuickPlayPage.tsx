@@ -76,25 +76,23 @@ const QuickPlayPage: React.FC = () => {
   // Get unique active players
   const getUniqueActivePlayers = (players: Record<string, any>) => {
     const now = Date.now();
-    const uniquePlayersByUserId = new Map<string, any>();
+    const uniquePlayers = new Set();
+    const activePlayersArray = [];
 
-    // First, collect all players and keep only the most recent entry per userId
-    Object.entries(players).forEach(([id, player]: [string, any]) => {
-      if (now - player.timestamp < PLAYER_TIMEOUT) {
-        const existingPlayer = uniquePlayersByUserId.get(player.userId);
-        if (!existingPlayer || player.timestamp > existingPlayer.timestamp) {
-          uniquePlayersByUserId.set(player.userId, {
-            ...player,
-            id,
-            timestamp: player.timestamp
-          });
-        }
+    // First pass: collect all valid players
+    for (const [id, player] of Object.entries(players)) {
+      if (now - player.timestamp < PLAYER_TIMEOUT && !uniquePlayers.has(player.userId)) {
+        uniquePlayers.add(player.userId);
+        activePlayersArray.push({
+          ...player,
+          id,
+          timestamp: player.timestamp
+        });
       }
-    });
+    }
 
-    // Convert to array and sort by timestamp
-    return Array.from(uniquePlayersByUserId.values())
-      .sort((a, b) => a.timestamp - b.timestamp);
+    // Sort by timestamp (earliest first)
+    return activePlayersArray.sort((a, b) => a.timestamp - b.timestamp);
   };
 
   // Main game logic
@@ -105,10 +103,11 @@ const QuickPlayPage: React.FC = () => {
     const gameInfoRef = ref(database, 'quickPlay/gameInfo');
     let gameJoined = false;
     let cleanup = false;
+    let joinAttempts = 0;
+    const MAX_JOIN_ATTEMPTS = 3;
 
     const handleGameStart = async (activePlayers: any[]) => {
       if (gameJoined || cleanup || activePlayers.length < 6) return;
-      gameJoined = true;
 
       const isFirstPlayer = activePlayers[0].userId === user.id;
       
@@ -127,32 +126,34 @@ const QuickPlayPage: React.FC = () => {
             players: activePlayers.slice(0, 6).map(p => p.name)
           });
           
+          gameJoined = true;
           setGameId(newGameId);
           navigate(`/game/${newGameId}`);
-
-          setTimeout(async () => {
-            if (!cleanup) {
-              await remove(ref(database, 'quickPlay'));
-            }
-          }, 5000);
         } else {
+          // Wait for game to be created
           await sleep(1000);
           
           const gameInfo = await fetchGameInfo();
-          
           if (!gameInfo) {
-            throw new Error('Game ID not found after multiple retries');
+            joinAttempts++;
+            if (joinAttempts >= MAX_JOIN_ATTEMPTS) {
+              throw new Error('Failed to join game after multiple attempts');
+            }
+            return; // Try again on next update
           }
 
           const joined = await joinGame(gameInfo.gameId, playerName);
           if (joined) {
+            gameJoined = true;
             setGameId(gameInfo.gameId);
             navigate(`/game/${gameInfo.gameId}`);
+          } else {
+            throw new Error('Failed to join game');
           }
         }
       } catch (error) {
         console.error('Error in game creation/joining:', error);
-        setNameError('Error starting game. Please try again.');
+        setNameError('Error joining game. Please try again.');
         setIsJoining(false);
         gameJoined = false;
       }
