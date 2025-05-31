@@ -16,7 +16,7 @@ const JoinGamePage: React.FC = () => {
   const [nameError, setNameError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [isAutoMatching, setIsAutoMatching] = useState(false);
-  const [waitingPlayers, setWaitingPlayers] = useState(0);
+  const [activeGames, setActiveGames] = useState<{[key: string]: number}>({});
   
   const { joinGame } = useGame();
   const { user, loading } = useAuth();
@@ -44,22 +44,24 @@ const JoinGamePage: React.FC = () => {
       const games = snapshot.val();
       if (!games) return;
 
-      let availableGame = null;
-      let totalWaiting = 0;
-
+      const availableGames: {[key: string]: number} = {};
       Object.entries(games).forEach(([id, game]: [string, any]) => {
         if (game.gameState === 'lobby' && game.players && game.players.length < 6) {
-          totalWaiting += game.players.length;
-          if (!availableGame) {
-            availableGame = { id, players: game.players.length };
-          }
+          availableGames[id] = game.players.length;
         }
       });
 
-      setWaitingPlayers(totalWaiting);
+      setActiveGames(availableGames);
 
-      if (availableGame && playerName) {
-        handleJoinGame(availableGame.id);
+      // Try to join a game if we have a name
+      if (playerName && Object.keys(availableGames).length > 0) {
+        const [firstGameId] = Object.entries(availableGames)
+          .sort(([,a], [,b]) => b - a) // Join the fullest game first
+          .filter(([,count]) => count < 6)[0];
+        
+        if (firstGameId) {
+          handleJoinGame(firstGameId);
+        }
       }
     });
 
@@ -105,6 +107,9 @@ const JoinGamePage: React.FC = () => {
     }
   };
 
+  // Calculate total waiting players
+  const totalWaitingPlayers = Object.values(activeGames).reduce((sum, count) => sum + count, 0);
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -136,11 +141,25 @@ const JoinGamePage: React.FC = () => {
             <h1 className="text-2xl font-bold text-white">
               {isAutoMatching ? 'Quick Play' : 'Join Game'}
             </h1>
-            <p className="text-purple-200 mt-2">
-              {isAutoMatching 
-                ? `Waiting for players (${waitingPlayers}/6)...`
-                : 'Enter the game code and your name to join an existing game'}
-            </p>
+            {isAutoMatching && (
+              <div className="mt-2">
+                <p className="text-purple-200">
+                  {Object.keys(activeGames).length > 0 
+                    ? `${totalWaitingPlayers} player${totalWaitingPlayers !== 1 ? 's' : ''} waiting in ${Object.keys(activeGames).length} game${Object.keys(activeGames).length !== 1 ? 's' : ''}`
+                    : 'Searching for available games...'}
+                </p>
+                {Object.entries(activeGames).map(([gameId, count]) => (
+                  <p key={gameId} className="text-sm text-purple-300 mt-1">
+                    Game {gameId}: {count}/6 players
+                  </p>
+                ))}
+              </div>
+            )}
+            {!isAutoMatching && (
+              <p className="text-purple-200 mt-2">
+                Enter the game code and your name to join an existing game
+              </p>
+            )}
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
