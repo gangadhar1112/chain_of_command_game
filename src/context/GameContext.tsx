@@ -248,6 +248,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const kingPlayer = updatedPlayers.find(player => player.role === 'king');
     if (kingPlayer) {
       kingPlayer.isCurrentTurn = true;
+      updatedPlayers.forEach(p => {
+        if (p.id !== kingPlayer.id) {
+          p.isCurrentTurn = false;
+        }
+      });
     }
     
     setPlayers(updatedPlayers);
@@ -278,7 +283,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let updatedPlayers = [...players];
     
     if (isCorrectGuess) {
-      // Lock both players in their positions
+      // Lock both players and pass the turn to the found player
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === currentPlayer.id) {
           return { ...p, isLocked: true, isCurrentTurn: false };
@@ -289,7 +294,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ...p, isCurrentTurn: false };
       });
     } else {
-      // Swap roles and reset turns
+      // Swap roles between players
       const tempRole = currentPlayer.role;
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === currentPlayer.id) {
@@ -317,7 +322,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         saveGameState(gameId, updatedPlayers, 'completed');
       }
     } else if (!isCorrectGuess) {
-      // If not all players are locked and guess was wrong, find next active player
+      // If guess was wrong and game isn't over, find the next active player
       const nextPlayer = findNextActivePlayer(updatedPlayers);
       if (nextPlayer) {
         updatedPlayers = updatedPlayers.map(p => ({
@@ -327,6 +332,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     
+    // Update state
     setPlayers(updatedPlayers);
     const updatedCurrentPlayer = updatedPlayers.find(p => p.id === currentPlayer.id);
     if (updatedCurrentPlayer) {
