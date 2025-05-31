@@ -3,11 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Users, ArrowLeft, Loader, Crown } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, get } from 'firebase/database';
 import { database } from '../config/firebase';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import toast from 'react-hot-toast';
 
 const JoinGamePage: React.FC = () => {
   const [gameId, setGameId] = useState('');
@@ -17,6 +18,9 @@ const JoinGamePage: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [isAutoMatching, setIsAutoMatching] = useState(false);
   const [activeGames, setActiveGames] = useState<{[key: string]: number}>({});
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
+  const retryDelay = 1000; // 1 second
   
   const { joinGame } = useGame();
   const { user, loading } = useAuth();
@@ -53,7 +57,6 @@ const JoinGamePage: React.FC = () => {
 
       setActiveGames(availableGames);
 
-      // Try to join a game if we have a name
       if (playerName && Object.keys(availableGames).length > 0) {
         const [firstGameId] = Object.entries(availableGames)
           .sort(([,a], [,b]) => b - a) // Join the fullest game first
@@ -68,21 +71,73 @@ const JoinGamePage: React.FC = () => {
     return () => off(openGamesRef);
   }, [isAutoMatching, playerName]);
 
-  const handleJoinGame = async (targetGameId: string) => {
+  const validateGame = async (gameId: string): Promise<boolean> => {
+    const gameRef = ref(database, `games/${gameId}`);
+    const snapshot = await get(gameRef);
+    const gameData = snapshot.val();
+
+    if (!gameData) {
+      setGameIdError('Game not found');
+      return false;
+    }
+
+    if (gameData.gameState !== 'lobby') {
+      setGameIdError('Game has already started');
+      return false;
+    }
+
+    const currentPlayers = gameData.players || [];
+    if (currentPlayers.length >= 6) {
+      setGameIdError('Game is full');
+      return false;
+    }
+
+    // Check if user is already in the game
+    const existingPlayer = currentPlayers.find((p: any) => p.userId === user?.id);
+    if (existingPlayer) {
+      navigate(`/game/${gameId}`);
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleJoinGame = async (targetGameId: string, retry = false) => {
     try {
       setIsJoining(true);
+      
+      const isValid = await validateGame(targetGameId);
+      if (!isValid) {
+        return;
+      }
+
       const success = await joinGame(targetGameId, playerName.trim());
       
       if (success) {
         navigate(`/game/${targetGameId}`);
+        toast.success('Successfully joined the game!');
       } else {
-        setGameIdError('Game not found or already in progress');
+        // If join failed and we haven't exceeded max retries, try again
+        if (!retry && retryCount < maxRetries) {
+          setRetryCount(prev => prev + 1);
+          setTimeout(() => {
+            handleJoinGame(targetGameId, true);
+          }, retryDelay);
+          return;
+        }
+        
+        setGameIdError('Unable to join game. Please try again.');
+        toast.error('Failed to join game. Please try again.');
       }
     } catch (error) {
       console.error('Error joining game:', error);
       setGameIdError('Error joining game. Please try again.');
+      toast.error('Error joining game. Please try again.');
     } finally {
-      setIsJoining(false);
+      if (!retry) {
+        setIsJoining(false);
+        setRetryCount(0);
+      }
     }
   };
 
@@ -107,7 +162,6 @@ const JoinGamePage: React.FC = () => {
     }
   };
 
-  // Calculate total waiting players
   const totalWaitingPlayers = Object.values(activeGames).reduce((sum, count) => sum + count, 0);
 
   if (loading) {
@@ -175,6 +229,7 @@ const JoinGamePage: React.FC = () => {
                 placeholder="Enter your name"
                 error={nameError}
                 disabled={isJoining}
+                maxLength={20}
               />
             </div>
 
