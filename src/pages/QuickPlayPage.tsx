@@ -10,6 +10,9 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import { generateId } from '../utils/helpers';
 
+const PLAYER_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+const REFRESH_INTERVAL = 60 * 1000; // Refresh every minute
+
 const QuickPlayPage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
   const [nameError, setNameError] = useState('');
@@ -40,7 +43,7 @@ const QuickPlayPage: React.FC = () => {
       const players = snapshot.val() || {};
       const activePlayers = Object.entries(players)
         .filter(([_, player]: [string, any]) => 
-          Date.now() - player.timestamp < 30000 // Remove stale players (30s timeout)
+          Date.now() - player.timestamp < PLAYER_TIMEOUT // Remove stale players (5 min timeout)
         )
         .map(([id, player]: [string, any]) => ({
           id,
@@ -51,7 +54,7 @@ const QuickPlayPage: React.FC = () => {
       // Clean up stale players
       const stalePlayerIds = Object.entries(players)
         .filter(([_, player]: [string, any]) => 
-          Date.now() - player.timestamp >= 30000
+          Date.now() - player.timestamp >= PLAYER_TIMEOUT
         )
         .map(([id]) => id);
 
@@ -113,7 +116,7 @@ const QuickPlayPage: React.FC = () => {
     };
 
     // Keep player entry fresh
-    const refreshInterval = setInterval(addToQueue, 10000);
+    const refreshInterval = setInterval(addToQueue, REFRESH_INTERVAL);
     addToQueue();
 
     // Cleanup function
