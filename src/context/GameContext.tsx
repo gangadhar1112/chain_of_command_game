@@ -4,6 +4,7 @@ import { database } from '../config/firebase';
 import { useAuth } from './AuthContext';
 import { Player, GameState, Role, RoleInfo } from '../types/gameTypes';
 import { generateId } from '../utils/helpers';
+import confetti from 'canvas-confetti';
 
 interface GameContextType {
   gameState: GameState;
@@ -11,6 +12,7 @@ interface GameContextType {
   players: Player[];
   gameId: string | null;
   isHost: boolean;
+  lastGuessResult: { correct: boolean; message: string } | null;
   createGame: (playerName: string) => string;
   joinGame: (gameId: string, playerName: string) => Promise<boolean>;
   startGame: () => void;
@@ -18,6 +20,7 @@ interface GameContextType {
   leaveGame: () => void;
   getRoleInfo: (role: Role) => RoleInfo;
   getNextRoleInChain: (role: Role) => Role | null;
+  clearGuessResult: () => void;
 }
 
 const roleInfoMap: Record<Role, RoleInfo> = {
@@ -79,6 +82,7 @@ const defaultContext: GameContextType = {
   players: [],
   gameId: null,
   isHost: false,
+  lastGuessResult: null,
   createGame: () => '',
   joinGame: () => Promise.resolve(false),
   startGame: () => {},
@@ -93,6 +97,7 @@ const defaultContext: GameContextType = {
     chainOrder: 0,
   }),
   getNextRoleInChain: () => null,
+  clearGuessResult: () => {},
 };
 
 const GameContext = createContext<GameContextType>(defaultContext);
@@ -103,7 +108,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [players, setPlayers] = useState<Player[]>([]);
   const [gameId, setGameId] = useState<string | null>(null);
   const [isHost, setIsHost] = useState<boolean>(false);
+  const [lastGuessResult, setLastGuessResult] = useState<{ correct: boolean; message: string } | null>(null);
   const { user } = useAuth();
+
+  const clearGuessResult = useCallback(() => {
+    setLastGuessResult(null);
+  }, []);
 
   useEffect(() => {
     if (!gameId) return;
@@ -205,7 +215,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    // Check if the game already has 6 players
     if (gameData.players && gameData.players.length >= 6) {
       return false;
     }
@@ -248,7 +257,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isCurrentTurn: false,
     }));
     
-    // Set the King's turn
     const kingPlayer = updatedPlayers.find(player => player.role === 'king');
     if (kingPlayer) {
       kingPlayer.isCurrentTurn = true;
@@ -287,7 +295,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let updatedPlayers = [...players];
     
     if (isCorrectGuess) {
-      // Lock the guessing player (not the target) and pass turn to target
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === currentPlayer.id) {
           return { ...p, isLocked: true, isCurrentTurn: false };
@@ -297,8 +310,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return { ...p, isCurrentTurn: false };
       });
+
+      setLastGuessResult({
+        correct: true,
+        message: `Correct! You found the ${roleInfoMap[targetPlayer.role].name}!`
+      });
     } else {
-      // Swap roles between players
       const tempRole = currentPlayer.role;
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === currentPlayer.id) {
@@ -310,14 +327,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { ...p, isCurrentTurn: false };
       });
 
-      // Find the new King and give them the turn
+      setLastGuessResult({
+        correct: false,
+        message: `Wrong guess! You swapped roles with ${targetPlayer.name}.`
+      });
+
       const newKingPlayer = updatedPlayers.find(p => p.role === 'king' && !p.isLocked);
       if (newKingPlayer) {
         newKingPlayer.isCurrentTurn = true;
       }
     }
     
-    // Check if game is completed
     const allPlayersLocked = updatedPlayers.every(p => p.isLocked || p.role === 'thief');
     
     if (allPlayersLocked) {
@@ -326,7 +346,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         saveGameState(gameId, updatedPlayers, 'completed');
       }
     } else if (!isCorrectGuess) {
-      // If guess was wrong and game isn't over, find the next active player
       const nextPlayer = findNextActivePlayer(updatedPlayers);
       if (nextPlayer) {
         updatedPlayers = updatedPlayers.map(p => ({
@@ -336,7 +355,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     
-    // Update state
     setPlayers(updatedPlayers);
     const updatedCurrentPlayer = updatedPlayers.find(p => p.id === currentPlayer.id);
     if (updatedCurrentPlayer) {
@@ -346,7 +364,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (gameId) {
       saveGameState(gameId, updatedPlayers, allPlayersLocked ? 'completed' : 'playing');
     }
-  }, [currentPlayer, players, gameState, gameId, getNextRoleInChain, saveGameState, findNextActivePlayer]);
+
+    setTimeout(clearGuessResult, 3000);
+  }, [currentPlayer, players, gameState, gameId, getNextRoleInChain, saveGameState, findNextActivePlayer, clearGuessResult]);
 
   const leaveGame = useCallback(() => {
     if (gameId && currentPlayer) {
@@ -358,12 +378,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         saveGameState(gameId, updatedPlayers, gameState);
       } else {
-        // Delete the game data when the last player leaves
         const gameRef = ref(database, `games/${gameId}`);
         remove(gameRef).catch(console.error);
       }
 
-      // Clear user's game data
       const userGamesRef = ref(database, `userGames/${user?.id}/${gameId}`);
       remove(userGamesRef).catch(console.error);
     }
@@ -383,6 +401,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         players,
         gameId,
         isHost,
+        lastGuessResult,
         createGame,
         joinGame,
         startGame,
@@ -390,6 +409,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         leaveGame,
         getRoleInfo,
         getNextRoleInChain,
+        clearGuessResult,
       }}
     >
       {children}
