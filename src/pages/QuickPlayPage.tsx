@@ -11,10 +11,10 @@ import Input from '../components/Input';
 import { generateId } from '../utils/helpers';
 
 const PLAYER_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
-const REFRESH_INTERVAL = 30 * 1000; // Refresh every 30 seconds
-const MAX_RETRIES = 5;
-const RETRY_DELAY = 1000;
-const GAME_START_DELAY = 2000; // Wait 2 seconds before starting game
+const REFRESH_INTERVAL = 10 * 1000; // Refresh every 10 seconds
+const MAX_RETRIES = 10; // Increased retries
+const RETRY_DELAY = 500; // Decreased delay between retries
+const GAME_START_DELAY = 3000; // Wait 3 seconds before starting game
 
 const QuickPlayPage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
@@ -69,6 +69,7 @@ const QuickPlayPage: React.FC = () => {
       }
     });
 
+    // Sort by timestamp to maintain consistent order
     return Array.from(uniquePlayers.values())
       .sort((a, b) => a.timestamp - b.timestamp);
   };
@@ -96,6 +97,8 @@ const QuickPlayPage: React.FC = () => {
     let gameJoined = false;
     let cleanup = false;
     let gameStartTimeout: NodeJS.Timeout;
+    let joinAttempts = 0;
+    const MAX_JOIN_ATTEMPTS = 3;
 
     const handleGameStart = async (activePlayers: any[]) => {
       if (gameJoined || cleanup || activePlayers.length < 6) return;
@@ -113,7 +116,7 @@ const QuickPlayPage: React.FC = () => {
             gameId: newGameId,
             hostId: user.id,
             timestamp: Date.now(),
-            players: activePlayers.map(p => p.name)
+            players: activePlayers.map(p => p.name).slice(0, 6)
           });
 
           // Wait for other players to join
@@ -135,7 +138,10 @@ const QuickPlayPage: React.FC = () => {
           
           const gameInfo = await fetchGameInfo();
           if (!gameInfo?.gameId) {
-            console.log('Waiting for game creation...');
+            joinAttempts++;
+            if (joinAttempts >= MAX_JOIN_ATTEMPTS) {
+              throw new Error('Failed to get game information after multiple attempts');
+            }
             return;
           }
 
