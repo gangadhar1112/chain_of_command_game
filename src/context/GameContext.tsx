@@ -139,10 +139,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const updatedCurrentPlayer = data.players?.find((p: Player) => p.id === currentPlayer.id);
         if (updatedCurrentPlayer) {
           setCurrentPlayer(updatedCurrentPlayer);
-        } else {
-          setCurrentPlayer(null);
-          setGameId(null);
-          setIsHost(false);
         }
       }
     });
@@ -251,11 +247,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const gameRef = ref(database, `games/${gameId}`);
     
     try {
-      // Use transaction to prevent race conditions
       const snapshot = await get(gameRef);
       const gameData = snapshot.val();
 
-      // Validate game exists and is in correct state
       if (!gameData) {
         console.error('Game not found');
         return false;
@@ -282,7 +276,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return true;
       }
 
-      // Validate player count
       if (currentPlayers.length >= 6) {
         console.error('Game is full');
         return false;
@@ -301,10 +294,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const updatedPlayers = [...currentPlayers, newPlayer];
 
-      // Update game state
       await saveGameState(gameId, updatedPlayers, gameData.gameState);
       
-      // Update local state
       setGameId(gameId);
       setPlayers(updatedPlayers);
       setCurrentPlayer(newPlayer);
@@ -336,11 +327,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const kingPlayer = updatedPlayers.find(player => player.role === 'king');
     if (kingPlayer) {
       kingPlayer.isCurrentTurn = true;
-      updatedPlayers.forEach(p => {
-        if (p.id !== kingPlayer.id) {
-          p.isCurrentTurn = false;
-        }
-      });
     }
     
     setPlayers(updatedPlayers);
@@ -472,8 +458,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         remove(gameRef).catch(console.error);
       }
 
-      const userGamesRef = ref(database, `userGames/${user?.id}/${gameId}`);
-      remove(userGamesRef).catch(console.error);
+      if (user) {
+        const userGamesRef = ref(database, `userGames/${user.id}/${gameId}`);
+        remove(userGamesRef).catch(console.error);
+      }
     }
 
     setGameState('waiting');
@@ -481,7 +469,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPlayers([]);
     setGameId(null);
     setIsHost(false);
-  }, [gameId, currentPlayer, players, gameState, saveGameState, user?.id]);
+  }, [gameId, currentPlayer, players, gameState, saveGameState, user]);
 
   return (
     <GameContext.Provider
