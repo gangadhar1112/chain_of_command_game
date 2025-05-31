@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Player, Role, RoleInfo } from '../types/gameTypes';
-import { Trophy, Crown, Medal, Award, ArrowRight, Sparkles, Star, Shield } from 'lucide-react';
+import { Trophy, Crown, Medal, Award, ArrowRight, Star, Shield } from 'lucide-react';
 import Button from './Button';
-import confetti from 'canvas-confetti';
 
 interface GameResultsProps {
   players: Player[];
@@ -15,9 +14,6 @@ const GameResults: React.FC<GameResultsProps> = ({
   getRoleInfo,
   onLeaveGame
 }) => {
-  const [showAnimation, setShowAnimation] = useState(false);
-  const [showRoleReveal, setShowRoleReveal] = useState(false);
-  
   // Sort players by their role's points (highest first)
   const sortedPlayers = [...players].sort((a, b) => {
     const roleA = a.role ? getRoleInfo(a.role).points : 0;
@@ -33,68 +29,18 @@ const GameResults: React.FC<GameResultsProps> = ({
     return `${index + 1}th`;
   };
   
-  useEffect(() => {
-    // Trigger initial animation
-    const timer = setTimeout(() => {
-      setShowAnimation(true);
-      
-      // Trigger celebratory confetti
-      const duration = 3000;
-      const end = Date.now() + duration;
-      
-      const frame = () => {
-        confetti({
-          particleCount: 2,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0, y: 0.8 },
-          colors: ['#FFD700', '#FFA500', '#FF69B4', '#4B0082']
-        });
-        
-        confetti({
-          particleCount: 2,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1, y: 0.8 },
-          colors: ['#FFD700', '#FFA500', '#FF69B4', '#4B0082']
-        });
-        
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        }
-      };
-      
-      frame();
-    }, 500);
-    
-    // Reveal roles after initial animation
-    const revealTimer = setTimeout(() => {
-      setShowRoleReveal(true);
-    }, 1500);
-    
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(revealTimer);
-    };
-  }, []);
-  
   return (
     <div className="bg-purple-800/50 backdrop-blur-sm rounded-xl p-4 md:p-6 shadow-lg border border-purple-700/50 w-full max-w-4xl mx-auto">
-      <div className={`
-        text-center mb-6 md:mb-8 transition-all duration-1000
-        ${showAnimation ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform -translate-y-10'}
-      `}>
+      <div className="text-center mb-6 md:mb-8">
         <div className="inline-flex items-center justify-center p-3 md:p-4 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-full mb-4">
           <Trophy className="text-white h-8 w-8 md:h-10 md:w-10" />
         </div>
         <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">
           Game Completed!
         </h1>
-        <div className="flex items-center justify-center gap-2 text-purple-200 text-base md:text-lg">
-          <Sparkles className="text-yellow-400 h-4 w-4 md:h-5 md:w-5" />
-          <p>The Chain of Command has been established</p>
-          <Sparkles className="text-yellow-400 h-4 w-4 md:h-5 md:w-5" />
-        </div>
+        <p className="text-purple-200 text-base md:text-lg">
+          The Chain of Command has been established
+        </p>
       </div>
       
       <div className="mb-6 md:mb-8">
@@ -107,21 +53,17 @@ const GameResults: React.FC<GameResultsProps> = ({
           {sortedPlayers.map((player, index) => {
             const roleInfo = player.role ? getRoleInfo(player.role) : null;
             const isTopThree = index < 3;
-            const delay = index * 200;
             
             return (
               <div 
                 key={player.id}
                 className={`
                   rounded-lg p-3 md:p-4 border relative overflow-hidden
-                  transition-all duration-500
-                  ${showAnimation ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-10'}
                   ${index === 0 ? 'bg-gradient-to-r from-yellow-900/50 to-amber-900/50 border-yellow-500/50' : 
                     index === 1 ? 'bg-gradient-to-r from-slate-800/50 to-gray-800/50 border-gray-400/50' :
                     index === 2 ? 'bg-gradient-to-r from-amber-900/50 to-orange-900/50 border-orange-500/50' :
                     'bg-purple-900/50 border-purple-700/50'}
                 `}
-                style={{ transitionDelay: `${delay}ms` }}
               >
                 <div className="flex items-center">
                   <div className="flex-shrink-0 mr-3 md:mr-4">
@@ -129,11 +71,7 @@ const GameResults: React.FC<GameResultsProps> = ({
                       <div className={`
                         w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center
                         ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-600'}
-                        transition-all duration-500 transform
-                        ${showAnimation ? 'scale-100 rotate-0' : 'scale-0 rotate-180'}
-                      `}
-                        style={{ transitionDelay: `${delay + 300}ms` }}
-                      >
+                      `}>
                         {index === 0 ? (
                           <Crown className="text-yellow-900 h-5 w-5 md:h-6 md:w-6" />
                         ) : (
@@ -141,13 +79,7 @@ const GameResults: React.FC<GameResultsProps> = ({
                         )}
                       </div>
                     ) : (
-                      <div className={`
-                        w-10 h-10 md:w-12 md:h-12 bg-purple-800 rounded-full flex items-center justify-center
-                        transition-all duration-500 transform
-                        ${showAnimation ? 'scale-100 rotate-0' : 'scale-0 rotate-180'}
-                      `}
-                        style={{ transitionDelay: `${delay + 300}ms` }}
-                      >
+                      <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-800 rounded-full flex items-center justify-center">
                         <span className="text-purple-300 font-bold text-base md:text-lg">{index + 1}</span>
                       </div>
                     )}
@@ -168,12 +100,7 @@ const GameResults: React.FC<GameResultsProps> = ({
                       </div>
                     </div>
                     
-                    <div className={`
-                      flex items-center mt-1 transition-all duration-500
-                      ${showRoleReveal ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-5'}
-                    `}
-                      style={{ transitionDelay: `${delay + 600}ms` }}
-                    >
+                    <div className="flex items-center mt-1">
                       <div className={`${roleInfo?.color} mr-2`}>
                         {getRoleIcon(player.role as string)}
                       </div>
@@ -187,13 +114,7 @@ const GameResults: React.FC<GameResultsProps> = ({
                   </div>
                 </div>
                 
-                {/* Achievement badges */}
-                <div className={`
-                  mt-2 md:mt-3 flex flex-wrap gap-2 transition-all duration-500
-                  ${showRoleReveal ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-5'}
-                `}
-                  style={{ transitionDelay: `${delay + 900}ms` }}
-                >
+                <div className="mt-2 md:mt-3 flex flex-wrap gap-2">
                   {index === 0 && (
                     <div className="bg-yellow-900/30 text-yellow-400 px-2 py-1 md:px-3 rounded-full text-xs md:text-sm flex items-center">
                       <Star className="h-3 w-3 md:h-4 md:w-4 mr-1" />
@@ -214,14 +135,7 @@ const GameResults: React.FC<GameResultsProps> = ({
       </div>
       
       <div className="flex justify-center">
-        <Button 
-          color="primary" 
-          onClick={onLeaveGame}
-          className={`
-            transition-all duration-500
-            ${showAnimation ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-10'}
-          `}
-        >
+        <Button color="primary" onClick={onLeaveGame}>
           Return to Home
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
