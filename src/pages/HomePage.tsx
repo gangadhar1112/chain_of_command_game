@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Crown, Users, Trophy, Star, ChevronRight, Heart, Building2, Shield, Siren, Footprints, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Crown, Users, Trophy, Star, ChevronRight, Heart, Building2, Shield, Siren, Footprints, ArrowRight, ChevronDown, ChevronUp, PlayCircle } from 'lucide-react';
 import Header from '../components/Header';
 import Button from '../components/Button';
 
@@ -146,6 +146,13 @@ const HomePage: React.FC = () => {
             <Link to="/join">
               <Button color="secondary" size="large">
                 Join Game
+                <ChevronRight className="ml-1 h-5 w-5" />
+              </Button>
+            </Link>
+            <Link to="/join">
+              <Button color="primary" size="large">
+                <PlayCircle className="mr-2 h-5 w-5" />
+                Play Game
                 <ChevronRight className="ml-1 h-5 w-5" />
               </Button>
             </Link>
