@@ -43,7 +43,7 @@ const QuickPlayPage: React.FC = () => {
       const players = snapshot.val() || {};
       const activePlayers = Object.entries(players)
         .filter(([_, player]: [string, any]) => 
-          Date.now() - player.timestamp < PLAYER_TIMEOUT // Remove stale players (5 min timeout)
+          Date.now() - player.timestamp < PLAYER_TIMEOUT
         )
         .map(([id, player]: [string, any]) => ({
           id,
