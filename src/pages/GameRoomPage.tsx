@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { Heart, Crown, Briefcase, Shield, BadgeAlert, Footprints, Users, Clock, Award, HelpCircle, XCircle } from 'lucide-react';
+import { Heart, Crown, Briefcase, Shield, BadgeAlert, Footprints, Users, Clock, Award, HelpCircle, XCircle, Lock, CheckCircle2, XCircle as XCircle2 } from 'lucide-react';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import PlayerCard from '../components/PlayerCard';
@@ -16,6 +16,7 @@ const GameRoomPage: React.FC = () => {
     currentPlayer,
     players,
     isHost,
+    lastGuessResult,
     startGame,
     leaveGame,
     makeGuess,
@@ -87,6 +88,8 @@ const GameRoomPage: React.FC = () => {
     makeGuess(selectedPlayerId);
     setSelectedPlayerId(null);
   };
+
+  const roleChain = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
   
   if (gameState === 'waiting') {
     return (
@@ -212,6 +215,58 @@ const GameRoomPage: React.FC = () => {
                   <XCircle className="h-5 w-5 mr-1" />
                   Leave Game
                 </Button>
+              </div>
+            </div>
+
+            {/* Guess Result Notification */}
+            {lastGuessResult && (
+              <div className={`
+                fixed top-4 left-1/2 transform -translate-x-1/2 z-50
+                ${lastGuessResult.correct ? 'bg-green-900/90' : 'bg-red-900/90'}
+                rounded-lg p-4 shadow-lg border
+                ${lastGuessResult.correct ? 'border-green-500' : 'border-red-500'}
+                flex items-center space-x-3 animate-fade-in
+              `}>
+                {lastGuessResult.correct ? (
+                  <CheckCircle2 className="text-green-400 h-6 w-6" />
+                ) : (
+                  <XCircle2 className="text-red-400 h-6 w-6" />
+                )}
+                <span className="text-white font-medium">{lastGuessResult.message}</span>
+              </div>
+            )}
+
+            {/* Locked Players Status */}
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-white mb-3 flex items-center">
+                <Lock className="text-indigo-400 mr-2 h-5 w-5" />
+                Chain Progress
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                {roleChain.map((role) => {
+                  const player = players.find(p => p.role === role && p.isLocked);
+                  const roleInfo = getRoleInfo(role as any);
+                  return (
+                    <div
+                      key={role}
+                      className={`
+                        rounded-lg p-2 text-center
+                        ${player ? 'bg-indigo-900/50 border-indigo-500' : 'bg-purple-900/30 border-purple-800/30'}
+                        border
+                      `}
+                    >
+                      <div className="text-sm font-medium mb-1">{roleInfo.name}</div>
+                      {player ? (
+                        <div className="flex items-center justify-center space-x-1">
+                          <Lock className="text-indigo-400 h-4 w-4" />
+                          <span className="text-indigo-300 text-xs">{player.name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-purple-400 text-xs">Unlocked</span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
             
