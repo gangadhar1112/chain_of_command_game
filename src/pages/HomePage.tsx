@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Crown, Users, Trophy, Star, ChevronRight, Heart, Briefcase, Shield, BadgeAlert, Footprints, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Crown, Users, Trophy, Star, ChevronRight, Heart, Building2, Shield, Siren, Footprints, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import Header from '../components/Header';
 import Button from '../components/Button';
 
@@ -11,9 +11,9 @@ const HomePage: React.FC = () => {
   const chainRoles = [
     { name: 'King', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-900/30', points: 10 },
     { name: 'Queen', icon: Heart, color: 'text-pink-400', bg: 'bg-pink-900/30', points: 9 },
-    { name: 'Minister', icon: Briefcase, color: 'text-blue-400', bg: 'bg-blue-900/30', points: 7 },
+    { name: 'Minister', icon: Building2, color: 'text-blue-400', bg: 'bg-blue-900/30', points: 7 },
     { name: 'Soldier', icon: Shield, color: 'text-green-400', bg: 'bg-green-900/30', points: 6 },
-    { name: 'Police', icon: BadgeAlert, color: 'text-indigo-400', bg: 'bg-indigo-900/30', points: 4 },
+    { name: 'Police', icon: Siren, color: 'text-indigo-400', bg: 'bg-indigo-900/30', points: 4 },
     { name: 'Thief', icon: Footprints, color: 'text-red-400', bg: 'bg-red-900/30', points: 0 },
   ];
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crown, Heart, Briefcase, Shield, BadgeAlert, Footprints, Lock } from 'lucide-react';
+import { Crown, Heart, Building2, Shield, Siren, Footprints, Lock } from 'lucide-react';
 import { Role } from '../types/gameTypes';
 
 interface RoleCardProps {
@@ -33,7 +33,7 @@ const RoleCard: React.FC<RoleCardProps> = ({ role, isLocked }) => {
       case 'minister':
         return {
           name: 'Minister',
-          icon: <Briefcase className="h-6 w-6 sm:h-8 sm:w-8" />,
+          icon: <Building2 className="h-6 w-6 sm:h-8 sm:w-8" />,
           color: 'text-blue-400',
           bg: 'bg-blue-900/30',
           border: 'border-blue-700/50',
@@ -53,7 +53,7 @@ const RoleCard: React.FC<RoleCardProps> = ({ role, isLocked }) => {
       case 'police':
         return {
           name: 'Police',
-          icon: <BadgeAlert className="h-6 w-6 sm:h-8 sm:w-8" />,
+          icon: <Siren className="h-6 w-6 sm:h-8 sm:w-8" />,
           color: 'text-indigo-400',
           bg: 'bg-indigo-900/30',
           border: 'border-indigo-700/50',
