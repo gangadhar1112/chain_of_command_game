@@ -248,11 +248,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const kingPlayer = updatedPlayers.find(player => player.role === 'king');
     if (kingPlayer) {
       kingPlayer.isCurrentTurn = true;
-      updatedPlayers.forEach(p => {
-        if (p.id !== kingPlayer.id) {
-          p.isCurrentTurn = false;
-        }
-      });
     }
     
     setPlayers(updatedPlayers);
@@ -268,52 +263,44 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isHost, gameId, players, currentPlayer, saveGameState]);
 
   const makeGuess = useCallback((targetPlayerId: string) => {
-    if (!currentPlayer || !currentPlayer.isCurrentTurn || gameState !== 'playing') {
+    if (!currentPlayer?.isCurrentTurn || !currentPlayer.role || gameState !== 'playing') {
       return;
     }
     
-    const guessingPlayer = { ...currentPlayer };
-    const targetPlayerIndex = players.findIndex(p => p.id === targetPlayerId);
-    
-    if (targetPlayerIndex === -1 || guessingPlayer.isLocked) {
+    const targetPlayer = players.find(p => p.id === targetPlayerId);
+    if (!targetPlayer || targetPlayer.isLocked || currentPlayer.isLocked) {
       return;
     }
-    
-    const targetPlayer = { ...players[targetPlayerIndex] };
-    const expectedNextRole = getNextRoleInChain(guessingPlayer.role as Role);
-    
+
+    const expectedNextRole = getNextRoleInChain(currentPlayer.role);
     const isCorrectGuess = targetPlayer.role === expectedNextRole;
     
     let updatedPlayers = [...players];
     
     if (isCorrectGuess) {
-      // Correct guess - lock both players
-      guessingPlayer.isLocked = true;
-      targetPlayer.isLocked = true;
-      guessingPlayer.isCurrentTurn = false;
-      targetPlayer.isCurrentTurn = true;
-      
+      // Lock both players in their positions
       updatedPlayers = updatedPlayers.map(p => {
-        if (p.id === guessingPlayer.id) return guessingPlayer;
-        if (p.id === targetPlayer.id) return targetPlayer;
-        p.isCurrentTurn = false;
-        return p;
+        if (p.id === currentPlayer.id) {
+          return { ...p, isLocked: true, isCurrentTurn: false };
+        }
+        if (p.id === targetPlayer.id) {
+          return { ...p, isLocked: true, isCurrentTurn: true };
+        }
+        return { ...p, isCurrentTurn: false };
       });
     } else {
-      // Wrong guess - swap roles
-      const tempRole = guessingPlayer.role;
-      guessingPlayer.role = targetPlayer.role;
-      targetPlayer.role = tempRole;
-      
-      // Reset turns for all players
-      updatedPlayers = updatedPlayers.map(p => ({
-        ...p,
-        role: p.id === guessingPlayer.id ? guessingPlayer.role :
-              p.id === targetPlayer.id ? targetPlayer.role :
-              p.role,
-        isCurrentTurn: false
-      }));
-      
+      // Swap roles and reset turns
+      const tempRole = currentPlayer.role;
+      updatedPlayers = updatedPlayers.map(p => {
+        if (p.id === currentPlayer.id) {
+          return { ...p, role: targetPlayer.role, isCurrentTurn: false };
+        }
+        if (p.id === targetPlayer.id) {
+          return { ...p, role: tempRole, isCurrentTurn: false };
+        }
+        return { ...p, isCurrentTurn: false };
+      });
+
       // Find the new King and give them the turn
       const newKingPlayer = updatedPlayers.find(p => p.role === 'king' && !p.isLocked);
       if (newKingPlayer) {
@@ -321,9 +308,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     
-    setPlayers(updatedPlayers);
-    setCurrentPlayer(guessingPlayer);
-    
+    // Check if game is completed
     const allPlayersLocked = updatedPlayers.every(p => p.isLocked || p.role === 'thief');
     
     if (allPlayersLocked) {
@@ -331,19 +316,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (gameId) {
         saveGameState(gameId, updatedPlayers, 'completed');
       }
-    } else {
-      // If not all players are locked, find the next active player
+    } else if (!isCorrectGuess) {
+      // If not all players are locked and guess was wrong, find next active player
       const nextPlayer = findNextActivePlayer(updatedPlayers);
-      if (nextPlayer && !isCorrectGuess) {
+      if (nextPlayer) {
         updatedPlayers = updatedPlayers.map(p => ({
           ...p,
           isCurrentTurn: p.id === nextPlayer.id
         }));
       }
-      
-      if (gameId) {
-        saveGameState(gameId, updatedPlayers, 'playing');
-      }
+    }
+    
+    setPlayers(updatedPlayers);
+    const updatedCurrentPlayer = updatedPlayers.find(p => p.id === currentPlayer.id);
+    if (updatedCurrentPlayer) {
+      setCurrentPlayer(updatedCurrentPlayer);
+    }
+    
+    if (gameId) {
+      saveGameState(gameId, updatedPlayers, allPlayersLocked ? 'completed' : 'playing');
     }
   }, [currentPlayer, players, gameState, gameId, getNextRoleInChain, saveGameState, findNextActivePlayer]);
 
