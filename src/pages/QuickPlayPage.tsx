@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, ArrowLeft, Loader, Crown } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
-import { ref, onValue, off, set } from 'firebase/database';
+import { ref, onValue, off, set, get } from 'firebase/database';
 import { database } from '../config/firebase';
 import Header from '../components/Header';
 import Button from '../components/Button';
@@ -27,41 +27,65 @@ const QuickPlayPage: React.FC = () => {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    if (!playerName) return;
+    if (!playerName || !user || !isJoining) return;
 
     const quickPlayRef = ref(database, 'quickPlay');
+    
     const unsubscribe = onValue(quickPlayRef, async (snapshot) => {
       const players = snapshot.val() || {};
-      const currentPlayers = Object.values(players).filter((p: any) => 
-        Date.now() - p.timestamp < 30000 // Remove stale players (30s timeout)
-      );
+      const currentPlayers = Object.entries(players)
+        .filter(([_, player]: [string, any]) => 
+          Date.now() - player.timestamp < 30000 // Remove stale players (30s timeout)
+        )
+        .map(([id, player]: [string, any]) => ({
+          id,
+          ...player
+        }));
 
       setWaitingPlayers(currentPlayers.length);
 
+      // Sort players by timestamp to ensure consistent order
+      currentPlayers.sort((a, b) => a.timestamp - b.timestamp);
+
       if (currentPlayers.length >= 6) {
-        // Create a new game when we have 6 players
-        const gameId = generateId(6);
-        const hostPlayer = currentPlayers[0] as any;
-        
-        // Create the game
-        await createGame(hostPlayer.name);
-        
-        // Join the game with remaining players
-        for (let i = 1; i < 6; i++) {
-          const player = currentPlayers[i] as any;
-          await joinGame(gameId, player.name);
+        try {
+          // First player creates the game
+          const isFirstPlayer = currentPlayers[0].userId === user.id;
+          const gameId = generateId(6);
+
+          if (isFirstPlayer) {
+            // Create game as host
+            createGame(playerName);
+            
+            // Wait a bit for game creation
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Clear quick play queue
+            await set(quickPlayRef, null);
+          } else {
+            // Other players join the game
+            await joinGame(gameId, playerName);
+          }
+
+          // Navigate to game
+          navigate(`/game/${gameId}`);
+        } catch (error) {
+          console.error('Error starting game:', error);
+          setNameError('Error starting game. Please try again.');
+          setIsJoining(false);
         }
-
-        // Clear the quick play queue
-        await set(quickPlayRef, null);
-
-        // Navigate to the game
-        navigate(`/game/${gameId}`);
       }
     });
 
-    return () => off(quickPlayRef);
-  }, [playerName, createGame, joinGame, navigate]);
+    // Cleanup function
+    return () => {
+      off(quickPlayRef);
+      if (user) {
+        const playerRef = ref(database, `quickPlay/${user.id}`);
+        set(playerRef, null).catch(console.error);
+      }
+    };
+  }, [playerName, user, isJoining, createGame, joinGame, navigate]);
 
   const handleQuickPlay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +176,7 @@ const QuickPlayPage: React.FC = () => {
                 {isJoining ? (
                   <span className="flex items-center justify-center">
                     <Loader className="animate-spin h-5 w-5 mr-2" />
-                    Finding Players...
+                    Finding Players ({waitingPlayers}/6)
                   </span>
                 ) : (
                   'Find Game'
