@@ -143,7 +143,7 @@ const HomePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Button color="primary" size="large" onClick={handleQuickPlay}>
               <PlayCircle className="mr-2 h-5 w-5" />
-              Play Game
+              Quick Game
             </Button>
             <Link to="/create">
               <Button color="secondary" size="large">
