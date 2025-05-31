@@ -283,13 +283,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let updatedPlayers = [...players];
     
     if (isCorrectGuess) {
-      // Lock both players and pass the turn to the found player
+      // Lock the guessing player (not the target) and pass turn to target
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === currentPlayer.id) {
           return { ...p, isLocked: true, isCurrentTurn: false };
         }
         if (p.id === targetPlayer.id) {
-          return { ...p, isLocked: true, isCurrentTurn: true };
+          return { ...p, isCurrentTurn: true };
         }
         return { ...p, isCurrentTurn: false };
       });
