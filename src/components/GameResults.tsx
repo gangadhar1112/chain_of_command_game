@@ -47,14 +47,16 @@ const GameResults: React.FC<GameResultsProps> = ({
           particleCount: 2,
           angle: 60,
           spread: 55,
-          origin: { x: 0, y: 0.8 }
+          origin: { x: 0, y: 0.8 },
+          colors: ['#FFD700', '#FFA500', '#FF69B4', '#4B0082']
         });
         
         confetti({
           particleCount: 2,
           angle: 120,
           spread: 55,
-          origin: { x: 1, y: 0.8 }
+          origin: { x: 1, y: 0.8 },
+          colors: ['#FFD700', '#FFA500', '#FF69B4', '#4B0082']
         });
         
         if (Date.now() < end) {
