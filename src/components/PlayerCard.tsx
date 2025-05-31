@@ -46,6 +46,8 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   return (
     <motion.div
       whileTap={canSelect ? { scale: 0.95 } : {}}
+      animate={isSelected ? { scale: [1, 1.02, 1] } : {}}
+      transition={{ duration: 0.2 }}
       className={`
         rounded-lg p-3 ${cardBgClass} ${cardBorderClass} ${hoverClass}
         relative overflow-hidden transition-all duration-300

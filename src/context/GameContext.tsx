@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 import { Player, GameState, Role, RoleInfo } from '../types/gameTypes';
 import { generateId } from '../utils/helpers';
 import confetti from 'canvas-confetti';
+import toast from 'react-hot-toast';
 
 interface GameContextType {
   gameState: GameState;
@@ -315,7 +316,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         correct: true,
         message: `Correct! You found the ${roleInfoMap[targetPlayer.role].name}!`
       });
+      
+      toast.success(`You found the ${roleInfoMap[targetPlayer.role].name}!`, {
+        duration: 3000,
+        icon: '🎯',
+      });
     } else {
+      // Trigger vibration if available
+      if (navigator.vibrate) {
+        navigator.vibrate(200);
+      }
+
       const tempRole = currentPlayer.role;
       updatedPlayers = updatedPlayers.map(p => {
         if (p.id === currentPlayer.id) {
@@ -330,6 +341,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLastGuessResult({
         correct: false,
         message: `Wrong guess! You swapped roles with ${targetPlayer.name}.`
+      });
+      
+      toast.error(`Wrong guess! You swapped roles with ${targetPlayer.name}`, {
+        duration: 3000,
+        icon: '❌',
       });
 
       const newKingPlayer = updatedPlayers.find(p => p.role === 'king' && !p.isLocked);
