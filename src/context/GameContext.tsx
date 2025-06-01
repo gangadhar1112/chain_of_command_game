@@ -351,6 +351,32 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isHost, gameId, players, currentPlayer, debouncedSaveGameState, memoizedRoleChain]);
 
+  const getRoleInfo = useCallback((role: Role): RoleInfo => {
+    return memoizedRoleInfo[role];
+  }, [memoizedRoleInfo]);
+
+  const getNextRoleInChain = useCallback((role: Role): Role | null => {
+    const currentIndex = memoizedRoleChain.indexOf(role);
+    if (currentIndex === -1 || currentIndex === memoizedRoleChain.length - 1) {
+      return null;
+    }
+    return memoizedRoleChain[currentIndex + 1];
+  }, [memoizedRoleChain]);
+
+  const findNextActivePlayer = useCallback((players: Player[]): Player | null => {
+    for (const role of memoizedRoleChain) {
+      const player = players.find(p => p.role === role && !p.isLocked);
+      if (player) {
+        return player;
+      }
+    }
+    return null;
+  }, [memoizedRoleChain]);
+
+  const clearGuessResult = useCallback(() => {
+    setLastGuessResult(null);
+  }, []);
+
   const makeGuess = useCallback((targetPlayerId: string) => {
     if (!currentPlayer?.isCurrentTurn || !currentPlayer.role || gameState !== 'playing') {
       return;
@@ -483,32 +509,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setGameId(null);
     setIsHost(false);
   }, [gameId, currentPlayer, players, gameState, debouncedSaveGameState, user]);
-
-  const getRoleInfo = useCallback((role: Role): RoleInfo => {
-    return memoizedRoleInfo[role];
-  }, [memoizedRoleInfo]);
-
-  const getNextRoleInChain = useCallback((role: Role): Role | null => {
-    const currentIndex = memoizedRoleChain.indexOf(role);
-    if (currentIndex === -1 || currentIndex === memoizedRoleChain.length - 1) {
-      return null;
-    }
-    return memoizedRoleChain[currentIndex + 1];
-  }, [memoizedRoleChain]);
-
-  const findNextActivePlayer = useCallback((players: Player[]): Player | null => {
-    for (const role of memoizedRoleChain) {
-      const player = players.find(p => p.role === role && !p.isLocked);
-      if (player) {
-        return player;
-      }
-    }
-    return null;
-  }, [memoizedRoleChain]);
-
-  const clearGuessResult = useCallback(() => {
-    setLastGuessResult(null);
-  }, []);
 
   return (
     <GameContext.Provider
