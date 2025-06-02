@@ -125,7 +125,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const memoizedRoleInfo = useMemo(() => roleInfoMap, []);
   const memoizedRoleChain = useMemo(() => roleChain, []);
 
-  // Move handleGameInterruption to the top of the function definitions
   const handleGameInterruption = useCallback((reason: string, disconnectedPlayers?: string[]) => {
     setInterruptionReason(reason);
     setDisconnectedPlayers(disconnectedPlayers || []);
@@ -379,26 +378,35 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!gameId || !currentPlayer || !user) return;
 
     const presenceRef = ref(database, `presence/${gameId}/${currentPlayer.id}`);
-    const gameRef = ref(database, `games/${gameId}`);
+    const connectedRef = ref(database, '.info/connected');
 
     try {
-      await set(presenceRef, {
-        online: true,
-        lastSeen: Date.now(),
-        userId: user.id,
-        name: currentPlayer.name
+      onValue(connectedRef, async (snap) => {
+        if (snap.val() === true) {
+          await set(presenceRef, {
+            online: true,
+            lastSeen: Date.now(),
+            userId: user.id,
+            name: currentPlayer.name,
+            timestamp: database.ServerValue.TIMESTAMP
+          });
+
+          onDisconnect(presenceRef).remove();
+        }
       });
 
-      onDisconnect(presenceRef).remove();
-
       const intervalId = setInterval(async () => {
-        await set(presenceRef, {
-          online: true,
-          lastSeen: Date.now(),
-          userId: user.id,
-          name: currentPlayer.name
-        });
-      }, 30000);
+        const snapshot = await get(presenceRef);
+        if (snapshot.exists()) {
+          await set(presenceRef, {
+            online: true,
+            lastSeen: Date.now(),
+            userId: user.id,
+            name: currentPlayer.name,
+            timestamp: database.ServerValue.TIMESTAMP
+          });
+        }
+      }, 15000);
 
       return () => {
         clearInterval(intervalId);
@@ -408,6 +416,80 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error updating presence:', error);
     }
   }, [gameId, currentPlayer, user]);
+
+  useEffect(() => {
+    if (!gameId || !currentPlayer || gameState !== 'playing') return;
+
+    const presenceRef = ref(database, `presence/${gameId}`);
+    let presenceCleanup: (() => void) | null = null;
+
+    updatePresence().then(cleanup => {
+      presenceCleanup = cleanup;
+    });
+
+    const presenceUnsubscribe = onValue(presenceRef, (snapshot) => {
+      const presence = snapshot.val() || {};
+      const now = Date.now();
+      const OFFLINE_THRESHOLD = 45000;
+
+      const activePlayers = new Set(
+        Object.entries(presence)
+          .filter(([_, data]: [string, any]) => {
+            const timeDiff = now - (data.lastSeen || 0);
+            return timeDiff < OFFLINE_THRESHOLD;
+          })
+          .map(([playerId]) => playerId)
+      );
+
+      const currentPlayers = players.filter(p => !p.isLocked);
+      const disconnectedPlayers = currentPlayers.filter(
+        player => !activePlayers.has(player.id) && player.id !== currentPlayer.id
+      );
+
+      if (disconnectedPlayers.length > 0) {
+        setTimeout(async () => {
+          const presenceSnapshot = await get(presenceRef);
+          const currentPresence = presenceSnapshot.val() || {};
+          
+          const stillDisconnected = disconnectedPlayers.filter(player => {
+            const playerPresence = currentPresence[player.id];
+            return !playerPresence || now - (playerPresence.lastSeen || 0) >= OFFLINE_THRESHOLD;
+          });
+
+          if (stillDisconnected.length > 0) {
+            const remainingPlayers = players.filter(
+              p => !stillDisconnected.some(dp => dp.id === p.id)
+            );
+
+            if (remainingPlayers.length < 3) {
+              handleGameInterruption(
+                'Game ended: Not enough players to continue',
+                stillDisconnected.map(p => p.name)
+              );
+            } else {
+              const updates: { [key: string]: any } = {
+                [`games/${gameId}/players`]: remainingPlayers,
+                [`games/${gameId}/updatedAt`]: Date.now(),
+              };
+
+              await update(ref(database), updates);
+              
+              stillDisconnected.forEach(player => {
+                toast.error(`${player.name} has disconnected from the game`);
+              });
+            }
+          }
+        }, 5000);
+      }
+    });
+
+    return () => {
+      presenceUnsubscribe();
+      if (presenceCleanup) {
+        presenceCleanup();
+      }
+    };
+  }, [gameId, currentPlayer, players, gameState, updatePresence, handleGameInterruption]);
 
   useEffect(() => {
     const savedGameId = localStorage.getItem('currentGameId');
@@ -443,76 +525,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   }, [user]);
-
-  useEffect(() => {
-    if (!gameId || !currentPlayer) return;
-
-    const gameRef = ref(database, `games/${gameId}`);
-    const presenceRef = ref(database, `presence/${gameId}`);
-    let presenceCleanup: (() => void) | null = null;
-
-    updatePresence().then(cleanup => {
-      presenceCleanup = cleanup;
-    });
-
-    const gameUnsubscribe = onValue(gameRef, (snapshot) => {
-      const data = snapshot.val();
-      
-      if (!data) {
-        handleGameInterruption('Game session has ended');
-        return;
-      }
-
-      const updatedPlayers = data.players || [];
-      const currentPlayerStillInGame = updatedPlayers.some(
-        (p: Player) => p.id === currentPlayer.id
-      );
-
-      if (!currentPlayerStillInGame) {
-        handleGameInterruption('You were removed from the game');
-        return;
-      }
-
-      setGameState(data.gameState);
-      setPlayers(updatedPlayers);
-      
-      const updatedCurrentPlayer = updatedPlayers.find(
-        (p: Player) => p.id === currentPlayer.id
-      );
-      if (updatedCurrentPlayer) {
-        setCurrentPlayer(updatedCurrentPlayer);
-      }
-    });
-
-    const presenceUnsubscribe = onValue(presenceRef, (snapshot) => {
-      const presence = snapshot.val() || {};
-      const now = Date.now();
-      const OFFLINE_THRESHOLD = 45000;
-
-      const activePlayers = players.filter(player => {
-        const playerPresence = presence[player.id];
-        return playerPresence && now - playerPresence.lastSeen < OFFLINE_THRESHOLD;
-      });
-
-      if (activePlayers.length < players.length) {
-        const disconnectedPlayers = players.filter(player => 
-          !activePlayers.some(p => p.id === player.id)
-        );
-
-        disconnectedPlayers.forEach(player => {
-          handlePlayerDisconnection(player);
-        });
-      }
-    });
-
-    return () => {
-      gameUnsubscribe();
-      presenceUnsubscribe();
-      if (presenceCleanup) {
-        presenceCleanup();
-      }
-    };
-  }, [gameId, currentPlayer, players, updatePresence, handleGameInterruption]);
 
   return (
     <GameContext.Provider value={{
