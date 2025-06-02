@@ -50,25 +50,35 @@ const SignUpPage: React.FC = () => {
       return;
     }
 
+    setLoading(true);
     const loadingToast = toast.loading('Creating your account...');
 
     try {
-      setLoading(true);
       let photoURL = null;
 
+      // Handle image upload if a profile image was selected
       if (profileImage) {
         try {
           const storage = getStorage();
           const imageRef = storageRef(storage, `profile_images/${Date.now()}_${profileImage.name}`);
-          const snapshot = await uploadBytes(imageRef, profileImage);
-          photoURL = await getDownloadURL(snapshot.ref);
+          await toast.promise(
+            uploadBytes(imageRef, profileImage),
+            {
+              loading: 'Uploading profile image...',
+              success: 'Profile image uploaded!',
+              error: 'Failed to upload profile image'
+            }
+          );
+          photoURL = await getDownloadURL(imageRef);
         } catch (uploadError) {
           console.error('Error uploading profile image:', uploadError);
-          toast.error('Failed to upload profile image, but continuing with signup');
+          toast.error('Failed to upload profile image, continuing with signup');
         }
       }
 
+      // Create the account
       await signUp(email.trim(), password, name.trim(), photoURL);
+      
       toast.success('Account created successfully!', {
         id: loadingToast,
       });
@@ -92,7 +102,7 @@ const SignUpPage: React.FC = () => {
       } else {
         setError('An unexpected error occurred. Please try again.');
       }
-      toast.error('Failed to create account', {
+      toast.error(error || 'Failed to create account', {
         id: loadingToast,
       });
     } finally {
