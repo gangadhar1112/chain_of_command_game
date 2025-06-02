@@ -142,22 +142,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, [gameId]);
 
   const setupGameListeners = (gameRef: any) => {
-    onValue(gameRef, (snapshot) => {
+    onValue(gameRef, async (snapshot) => {
       const game = snapshot.val();
+      
       if (!game) {
-        setGameState('waiting');
-        setPlayers([]);
-        setCurrentRole(null);
-        setIsHost(false);
-        setShowInterruptionModal(false);
-        navigate('/');
+        if (window.location.pathname !== '/') {
+          setGameState('waiting');
+          setPlayers([]);
+          setCurrentRole(null);
+          setIsHost(false);
+          setShowInterruptionModal(true);
+          setInterruptionReason('Game session has ended');
+          navigate('/');
+        }
+        return;
+      }
+
+      const hostPlayer = game.players?.find((p: Player) => p.isHost);
+      if (!hostPlayer && game.state !== 'completed') {
+        await update(gameRef, {
+          state: 'interrupted',
+          interruptionReason: 'Host has disconnected'
+        });
         return;
       }
 
       setGameState(game.state);
       setPlayers(game.players || []);
       
-      // Update isHost status based on current game data
       const playerInGame = game.players?.find((p: Player) => p.userId === user?.id);
       setIsHost(playerInGame?.isHost || false);
       
@@ -173,8 +185,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setShowInterruptionModal(false);
       }
 
-      const playerStillInGame = game.players.some((p: Player) => p.userId === user?.id);
-      if (!playerStillInGame && game.state !== 'interrupted') {
+      const playerStillInGame = game.players?.some((p: Player) => p.userId === user?.id);
+      if (!playerStillInGame && game.state !== 'completed' && game.state !== 'interrupted') {
         setGameState('waiting');
         setPlayers([]);
         setCurrentRole(null);
@@ -237,11 +249,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      if (gameData.state !== 'lobby') {
+        toast.error('Game has already started');
+        return false;
+      }
+
       const currentPlayers = gameData.players || [];
-      const existingPlayer = currentPlayers.find((p: Player) => p.userId === user.id);
       
+      const existingPlayer = currentPlayers.find((p: Player) => p.userId === user.id);
       if (existingPlayer) {
-        // Update existing player's connection
         const updatedPlayers = currentPlayers.map((p: Player) => 
           p.userId === user.id ? { ...p, name: playerName } : p
         );
@@ -253,13 +269,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setPlayers(updatedPlayers);
         setIsHost(existingPlayer.isHost);
         setCurrentRole(existingPlayer.role);
+        
         setupGameListeners(gameRef);
         return true;
-      }
-
-      if (gameData.state !== 'lobby') {
-        toast.error('Game has already started');
-        return false;
       }
 
       if (currentPlayers.length >= 6) {
@@ -280,7 +292,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const updatedPlayers = [...currentPlayers, newPlayer];
       
       await update(gameRef, {
-        players: updatedPlayers
+        players: updatedPlayers,
+        lastUpdated: Date.now()
       });
 
       setGameId(gameId);
@@ -292,7 +305,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (error) {
       console.error('Error joining game:', error);
-      throw new Error('Failed to join game');
+      toast.error('Failed to join game');
+      return false;
     }
   };
 
@@ -410,6 +424,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const snapshot = await get(gameRef);
       const game = snapshot.val();
 
+      if (!game) return;
+
       if (game.state === 'playing') {
         await update(gameRef, {
           state: 'interrupted',
@@ -423,13 +439,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         await remove(gameRef);
       } else {
         if (isHost) {
-          // Transfer host status to the next player
           remainingPlayers[0] = { ...remainingPlayers[0], isHost: true };
         }
         
         await update(gameRef, {
           players: remainingPlayers,
-          hostId: remainingPlayers[0].userId // Update hostId to new host
+          hostId: remainingPlayers[0].userId,
+          lastUpdated: Date.now()
         });
       }
 
