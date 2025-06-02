@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { LogIn, ArrowLeft } from 'lucide-react';
+import { LogIn, ArrowLeft, Loader } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
@@ -36,16 +36,15 @@ const SignInPage: React.FC = () => {
       if (err instanceof FirebaseError) {
         switch (err.code) {
           case 'auth/invalid-credential':
-            setError('Invalid email or password');
-            break;
-          case 'auth/user-not-found':
-            setError('No account found with this email');
-            break;
           case 'auth/wrong-password':
+          case 'auth/user-not-found':
             setError('Invalid email or password');
             break;
           case 'auth/too-many-requests':
             setError('Too many failed attempts. Please try again later');
+            break;
+          case 'auth/invalid-email':
+            setError('Invalid email format');
             break;
           default:
             console.error('Sign in error:', err);
@@ -87,6 +86,7 @@ const SignInPage: React.FC = () => {
                 setError('');
               }}
               placeholder="Enter your email"
+              error={error}
               disabled={isLoading}
             />
             
@@ -113,10 +113,6 @@ const SignInPage: React.FC = () => {
               </div>
             </div>
             
-            {error && (
-              <p className="text-red-400 text-sm">{error}</p>
-            )}
-            
             <div className="pt-4">
               <Button 
                 type="submit" 
@@ -124,7 +120,14 @@ const SignInPage: React.FC = () => {
                 fullWidth
                 disabled={isLoading}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <Loader className="animate-spin h-5 w-5 mr-2" />
+                    Signing in...
+                  </span>
+                ) : (
+                  'Sign In'
+                )}
               </Button>
             </div>
           </form>

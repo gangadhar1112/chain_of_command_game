@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Trash2, UserPlus, AlertCircle } from 'lucide-react';
+import { Users, Trash2, UserPlus, AlertCircle, Loader } from 'lucide-react';
 import { ref, get, remove } from 'firebase/database';
 import { database } from '../config/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -8,8 +8,16 @@ import Header from '../components/Header';
 import Button from '../components/Button';
 import toast from 'react-hot-toast';
 
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 const AdminPage: React.FC = () => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -42,8 +50,8 @@ const AdminPage: React.FC = () => {
     fetchUsers();
   }, [user, navigate]);
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to delete ${userName}?`)) return;
 
     try {
       const userRef = ref(database, `users/${userId}`);
@@ -60,8 +68,11 @@ const AdminPage: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        <main className="flex-1 container mx-auto px-4 py-8">
-          <div className="text-white text-center">Loading...</div>
+        <main className="flex-1 container mx-auto px-4 py-8 flex items-center justify-center">
+          <div className="flex items-center space-x-2 text-white">
+            <Loader className="animate-spin h-5 w-5" />
+            <span>Loading users...</span>
+          </div>
         </main>
       </div>
     );
@@ -98,14 +109,15 @@ const AdminPage: React.FC = () => {
                   <div>
                     <h3 className="text-white font-semibold">{user.name}</h3>
                     <p className="text-purple-300 text-sm">{user.email}</p>
-                    <p className="text-purple-400 text-xs">
-                      Created: {new Date(user.createdAt).toLocaleDateString()}
-                    </p>
+                    <div className="text-purple-400 text-xs space-x-4">
+                      <span>Created: {new Date(user.createdAt).toLocaleDateString()}</span>
+                      <span>Updated: {new Date(user.updatedAt).toLocaleDateString()}</span>
+                    </div>
                   </div>
                   <Button
                     color="danger"
                     size="small"
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => handleDeleteUser(user.id, user.name)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
