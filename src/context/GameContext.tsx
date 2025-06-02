@@ -189,21 +189,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       // Check if user is already in the game
       const existingPlayer = gameData.players?.find((p: Player) => p.userId === user.id);
       if (existingPlayer) {
-        // If the game is in lobby, allow rejoin
-        if (gameData.state === 'lobby') {
+        // If the game is in lobby or playing, allow rejoin
+        if (gameData.state === 'lobby' || gameData.state === 'playing') {
           setGameId(gameId);
-          setGameState('lobby');
+          setGameState(gameData.state);
           setPlayers(gameData.players || []);
           setIsHost(existingPlayer.isHost);
           setupGameListeners(gameRef);
           return true;
         }
-        
-        // If game is in progress, navigate to game page
-        navigate(`/game/${gameId}`);
-        return true;
       }
 
+      // Only allow new players to join if the game is in lobby state
       if (gameData.state !== 'lobby') {
         toast.error('Game has already started');
         return false;
