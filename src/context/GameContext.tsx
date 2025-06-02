@@ -29,8 +29,6 @@ interface GameContextType {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const ROLES: Role[] = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
-const HEARTBEAT_INTERVAL = 5000; // 5 seconds
-const PLAYER_TIMEOUT = 180000; // 3 minutes
 
 const getRoleInfo = (role: Role): RoleInfo => {
   switch (role) {
@@ -105,65 +103,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const currentPlayer = players.find(p => p.userId === user?.id) || null;
 
-  // Heartbeat system
-  useEffect(() => {
-    if (!gameId || !user?.id || gameState === 'waiting') return;
-
-    const heartbeatRef = ref(database, `games/${gameId}/heartbeats/${user.id}`);
-    const heartbeatInterval = setInterval(() => {
-      set(heartbeatRef, {
-        timestamp: Date.now(),
-        playerId: currentPlayer?.id,
-        name: currentPlayer?.name
-      });
-    }, HEARTBEAT_INTERVAL);
-
-    return () => {
-      clearInterval(heartbeatInterval);
-      set(heartbeatRef, null);
-    };
-  }, [gameId, user?.id, gameState, currentPlayer]);
-
-  // Monitor player connections
-  useEffect(() => {
-    if (!gameId || !isHost || gameState !== 'playing') return;
-
-    const checkDisconnections = setInterval(async () => {
-      const heartbeatsRef = ref(database, `games/${gameId}/heartbeats`);
-      const snapshot = await get(heartbeatsRef);
-      const heartbeats = snapshot.val() || {};
-
-      const now = Date.now();
-      const disconnectedPlayers = players.filter(player => {
-        const heartbeat = heartbeats[player.userId];
-        return !heartbeat || (now - heartbeat.timestamp) > PLAYER_TIMEOUT;
-      });
-
-      if (disconnectedPlayers.length > 0) {
-        const gameRef = ref(database, `games/${gameId}`);
-        const remainingPlayers = players.filter(p => !disconnectedPlayers.some(dp => dp.id === p.id));
-
-        if (remainingPlayers.length < 2) {
-          await update(gameRef, {
-            state: 'interrupted',
-            interruptionReason: 'Not enough players to continue'
-          });
-        } else {
-          // Update the game with remaining players
-          await update(gameRef, {
-            players: remainingPlayers
-          });
-
-          // Notify about disconnections
-          toast.error(`${disconnectedPlayers.map(p => p.name).join(', ')} disconnected`);
-        }
-      }
-    }, HEARTBEAT_INTERVAL);
-
-    return () => clearInterval(checkDisconnections);
-  }, [gameId, isHost, gameState, players]);
-
-  // Game state listener
   useEffect(() => {
     if (!gameId) return;
 
@@ -228,14 +167,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         state: 'lobby',
         players: [initialPlayer],
         createdAt: Date.now(),
-        hostId: user.id,
-        heartbeats: {
-          [user.id]: {
-            timestamp: Date.now(),
-            playerId: initialPlayer.id,
-            name: playerName
-          }
-        }
+        hostId: user.id
       });
 
       setGameId(newGameId);
@@ -290,11 +222,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       
       await update(gameRef, {
         players: updatedPlayers,
-        [`heartbeats/${user.id}`]: {
-          timestamp: Date.now(),
-          playerId: newPlayer.id,
-          name: playerName
-        }
+        lastUpdated: Date.now()
       });
 
       setGameId(gameId);
@@ -341,56 +269,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error starting game:', error);
       toast.error('Failed to start game');
-    }
-  };
-
-  const leaveGame = async () => {
-    if (!gameId || !user) return;
-
-    const gameRef = ref(database, `games/${gameId}`);
-    
-    try {
-      const snapshot = await get(gameRef);
-      const game = snapshot.val();
-
-      if (!game) return;
-
-      if (game.state === 'playing') {
-        await update(gameRef, {
-          state: 'interrupted',
-          interruptionReason: `${currentPlayer?.name} has left the game`
-        });
-      }
-
-      const remainingPlayers = game.players.filter((p: Player) => p.userId !== user.id);
-      
-      if (remainingPlayers.length === 0) {
-        await remove(gameRef);
-      } else {
-        if (isHost) {
-          remainingPlayers[0] = { ...remainingPlayers[0], isHost: true };
-        }
-        
-        await update(gameRef, {
-          players: remainingPlayers,
-          hostId: remainingPlayers[0].userId,
-          lastUpdated: Date.now()
-        });
-      }
-
-      await remove(ref(database, `games/${gameId}/heartbeats/${user.id}`));
-
-      setGameId(null);
-      setGameState('waiting');
-      setPlayers([]);
-      setCurrentRole(null);
-      setIsHost(false);
-      setShowInterruptionModal(false);
-      
-      navigate('/');
-    } catch (error) {
-      console.error('Error leaving game:', error);
-      toast.error('Failed to leave game');
     }
   };
 
@@ -446,6 +324,54 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
 
     setTimeout(() => setLastGuessResult(null), 3000);
+  };
+
+  const leaveGame = async () => {
+    if (!gameId || !user) return;
+
+    const gameRef = ref(database, `games/${gameId}`);
+    
+    try {
+      const snapshot = await get(gameRef);
+      const game = snapshot.val();
+
+      if (!game) return;
+
+      if (game.state === 'playing') {
+        await update(gameRef, {
+          state: 'interrupted',
+          interruptionReason: `${currentPlayer?.name} has left the game`
+        });
+      }
+
+      const remainingPlayers = game.players.filter((p: Player) => p.userId !== user.id);
+      
+      if (remainingPlayers.length === 0) {
+        await remove(gameRef);
+      } else {
+        if (isHost) {
+          remainingPlayers[0] = { ...remainingPlayers[0], isHost: true };
+        }
+        
+        await update(gameRef, {
+          players: remainingPlayers,
+          hostId: remainingPlayers[0].userId,
+          lastUpdated: Date.now()
+        });
+      }
+
+      setGameId(null);
+      setGameState('waiting');
+      setPlayers([]);
+      setCurrentRole(null);
+      setIsHost(false);
+      setShowInterruptionModal(false);
+      
+      navigate('/');
+    } catch (error) {
+      console.error('Error leaving game:', error);
+      toast.error('Failed to leave game');
+    }
   };
 
   const endGame = async () => {
