@@ -115,7 +115,7 @@ const isValidChainGuess = (players: Player[], currentPlayer: Player, targetPlaye
   const currentRoleIndex = roleOrder.indexOf(currentPlayer.role as Role);
   const targetRoleIndex = roleOrder.indexOf(targetPlayer.role as Role);
 
-  return currentRoleIndex === lastLockedIndex && targetRoleIndex === currentRoleIndex + 1;
+  return currentRoleIndex === lastLockedIndex && targetRoleIndex === lastLockedIndex + 1;
 };
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
