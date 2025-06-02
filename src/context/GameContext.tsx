@@ -30,6 +30,9 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const ROLES: Role[] = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
 
+const HEARTBEAT_INTERVAL = 5000; // 5 seconds
+const PLAYER_TIMEOUT = 15000; // 15 seconds
+
 const getRoleInfo = (role: Role): RoleInfo => {
   switch (role) {
     case 'raja':
@@ -131,6 +134,49 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [interruptionReason, setInterruptionReason] = useState('');
 
   const currentPlayer = players.find(p => p.userId === user?.id) || null;
+
+  useEffect(() => {
+    if (!gameId || !user?.id || gameState === 'waiting') return;
+
+    const heartbeatRef = ref(database, `games/${gameId}/heartbeats/${user.id}`);
+    const heartbeatInterval = setInterval(() => {
+      set(heartbeatRef, {
+        timestamp: Date.now(),
+        playerId: currentPlayer?.id
+      });
+    }, HEARTBEAT_INTERVAL);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      set(heartbeatRef, null);
+    };
+  }, [gameId, user?.id, gameState, currentPlayer]);
+
+  useEffect(() => {
+    if (!gameId || !isHost || gameState !== 'playing') return;
+
+    const checkDisconnections = setInterval(async () => {
+      const heartbeatsRef = ref(database, `games/${gameId}/heartbeats`);
+      const snapshot = await get(heartbeatsRef);
+      const heartbeats = snapshot.val() || {};
+
+      const now = Date.now();
+      const disconnectedPlayers = players.filter(player => {
+        const heartbeat = heartbeats[player.userId];
+        return !heartbeat || (now - heartbeat.timestamp) > PLAYER_TIMEOUT;
+      });
+
+      if (disconnectedPlayers.length > 0) {
+        const gameRef = ref(database, `games/${gameId}`);
+        await update(gameRef, {
+          state: 'interrupted',
+          interruptionReason: `${disconnectedPlayers.map(p => p.name).join(', ')} disconnected from the game`
+        });
+      }
+    }, HEARTBEAT_INTERVAL);
+
+    return () => clearInterval(checkDisconnections);
+  }, [gameId, isHost, gameState, players]);
 
   useEffect(() => {
     return () => {
@@ -448,6 +494,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           lastUpdated: Date.now()
         });
       }
+
+      await remove(ref(database, `games/${gameId}/heartbeats/${user.id}`));
 
       setGameId(null);
       setGameState('waiting');
