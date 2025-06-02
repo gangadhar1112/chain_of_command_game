@@ -121,23 +121,37 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const setupGameListeners = (gameRef: any) => {
     onValue(gameRef, (snapshot) => {
       const game = snapshot.val();
-      if (game) {
-        setGameState(game.state);
-        setPlayers(game.players || []);
-        
-        // Update current player's role if game is in progress
-        if (game.state === 'playing') {
-          const playerRole = game.players.find((p: Player) => p.userId === user?.id)?.role;
-          setCurrentRole(playerRole || null);
-        }
-
-        // Handle game interruption
-        if (game.state === 'interrupted') {
-          setShowInterruptionModal(true);
-          setInterruptionReason(game.interruptionReason || 'Game was interrupted');
-        }
-      } else {
+      if (!game) {
         // Game was deleted or doesn't exist
+        setGameState('waiting');
+        setPlayers([]);
+        setCurrentRole(null);
+        setIsHost(false);
+        setShowInterruptionModal(false);
+        navigate('/');
+        return;
+      }
+
+      setGameState(game.state);
+      setPlayers(game.players || []);
+      
+      // Update current player's role if game is in progress
+      if (game.state === 'playing') {
+        const playerRole = game.players.find((p: Player) => p.userId === user?.id)?.role;
+        setCurrentRole(playerRole || null);
+      }
+
+      // Handle game interruption
+      if (game.state === 'interrupted') {
+        setShowInterruptionModal(true);
+        setInterruptionReason(game.interruptionReason || 'Game was interrupted');
+      } else {
+        setShowInterruptionModal(false);
+      }
+
+      // Check if current player is still in the game
+      const playerStillInGame = game.players.some((p: Player) => p.userId === user?.id);
+      if (!playerStillInGame && game.state !== 'interrupted') {
         setGameState('waiting');
         setPlayers([]);
         setCurrentRole(null);
@@ -296,6 +310,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const game = snapshot.val();
 
     const targetPlayer = game.players.find((p: Player) => p.id === targetPlayerId);
+    if (!targetPlayer || targetPlayer.isLocked) return;
+
     const nextRole = getNextRoleInChain(currentPlayer.role as Role);
 
     if (targetPlayer.role === nextRole) {
@@ -387,6 +403,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setPlayers([]);
       setCurrentRole(null);
       setIsHost(false);
+      setShowInterruptionModal(false);
       
       // Unsubscribe from game updates
       off(gameRef);
