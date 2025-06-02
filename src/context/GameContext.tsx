@@ -532,5 +532,3 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useGame = () => useContext(GameContext);
-
-export { GameProvider }
