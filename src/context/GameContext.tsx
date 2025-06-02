@@ -98,6 +98,7 @@ const getNextRoleInChain = (currentRole: Role): Role | null => {
 const isValidChainGuess = (players: Player[], currentPlayer: Player, targetPlayer: Player): boolean => {
   const roleOrder = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
   
+  // Get all locked players in order of their roles
   const lockedPlayers = players
     .filter(p => p.isLocked)
     .sort((a, b) => {
@@ -106,15 +107,18 @@ const isValidChainGuess = (players: Player[], currentPlayer: Player, targetPlaye
       return roleA - roleB;
     });
 
+  // If no players are locked, only the King can make the first guess
   if (lockedPlayers.length === 0) {
-    return currentPlayer.role === 'king';
+    return currentPlayer.role === 'king' && targetPlayer.role === 'queen';
   }
 
+  // Get the last locked role in the chain
   const lastLockedRole = lockedPlayers[lockedPlayers.length - 1].role as Role;
   const lastLockedIndex = roleOrder.indexOf(lastLockedRole);
   const currentRoleIndex = roleOrder.indexOf(currentPlayer.role as Role);
   const targetRoleIndex = roleOrder.indexOf(targetPlayer.role as Role);
 
+  // The current player must be the last locked role and target must be the next role in sequence
   return currentRoleIndex === lastLockedIndex && targetRoleIndex === lastLockedIndex + 1;
 };
 
