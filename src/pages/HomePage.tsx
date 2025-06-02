@@ -9,12 +9,12 @@ const HomePage: React.FC = () => {
   const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   const chainRoles = [
-    { name: 'King', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-900/30', points: 10 },
-    { name: 'Queen', icon: Heart, color: 'text-pink-400', bg: 'bg-pink-900/30', points: 9 },
-    { name: 'Minister', icon: Building2, color: 'text-blue-400', bg: 'bg-blue-900/30', points: 7 },
-    { name: 'Soldier', icon: Shield, color: 'text-green-400', bg: 'bg-green-900/30', points: 6 },
+    { name: 'Raja', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-900/30', points: 10 },
+    { name: 'Rani', icon: Heart, color: 'text-pink-400', bg: 'bg-pink-900/30', points: 9 },
+    { name: 'Mantri', icon: Building2, color: 'text-blue-400', bg: 'bg-blue-900/30', points: 7 },
+    { name: 'Sipahi', icon: Shield, color: 'text-green-400', bg: 'bg-green-900/30', points: 6 },
     { name: 'Police', icon: Siren, color: 'text-indigo-400', bg: 'bg-indigo-900/30', points: 4 },
-    { name: 'Thief', icon: Footprints, color: 'text-red-400', bg: 'bg-red-900/30', points: 0 }
+    { name: 'Chor', icon: Footprints, color: 'text-red-400', bg: 'bg-red-900/30', points: 0 }
   ];
 
   return (
@@ -26,14 +26,13 @@ const HomePage: React.FC = () => {
           <div className="text-center mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 flex items-center justify-center">
               <Crown className="text-yellow-400 mr-3 h-10 w-10" />
-              <span>Chain of Command</span>
+              <span>Raja Rani Mantri</span>
             </h1>
             <p className="text-purple-200 text-lg md:text-xl">
               A royal game of deduction and strategy
             </p>
           </div>
 
-          {/* Game Features */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="bg-purple-900/70 rounded-lg p-5 border border-purple-700/50 shadow-md transition hover:bg-purple-900/90">
               <div className="flex items-center mb-3">
@@ -51,12 +50,11 @@ const HomePage: React.FC = () => {
                 <h3 className="text-xl font-semibold text-white">Score Points</h3>
               </div>
               <p className="text-purple-200">
-                Higher positions in the hierarchy earn more points. The King earns 10 points, while the Thief earns none.
+                Higher positions in the hierarchy earn more points. The Raja earns 10 points, while the Chor earns none.
               </p>
             </div>
           </div>
 
-          {/* Chain of Command Diagram */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-6 text-center">The Royal Chain</h2>
             <div className="relative">
@@ -87,7 +85,6 @@ const HomePage: React.FC = () => {
             </div>
           </div>
 
-          {/* How to Play Section */}
           <div className="mb-8">
             <button
               onClick={() => setShowHowToPlay(!showHowToPlay)}
@@ -109,11 +106,11 @@ const HomePage: React.FC = () => {
                 <ol className="space-y-3 text-purple-100">
                   <li className="flex">
                     <span className="font-bold text-yellow-400 mr-2">1.</span>
-                    <span>Each player receives a secret role: King, Queen, Minister, Soldier, Police, or Thief.</span>
+                    <span>Each player receives a secret role: Raja, Rani, Mantri, Sipahi, Police, or Chor.</span>
                   </li>
                   <li className="flex">
                     <span className="font-bold text-yellow-400 mr-2">2.</span>
-                    <span>The King starts first and must find the Queen. After the King, each role must find the next role in the chain.</span>
+                    <span>The Raja starts first and must find the Rani. After the Raja, each role must find the next role in the chain.</span>
                   </li>
                   <li className="flex">
                     <span className="font-bold text-yellow-400 mr-2">3.</span>
@@ -121,7 +118,7 @@ const HomePage: React.FC = () => {
                   </li>
                   <li className="flex">
                     <span className="font-bold text-yellow-400 mr-2">4.</span>
-                    <span>The game ends when all players except the Thief are locked in their correct positions.</span>
+                    <span>The game ends when all players except the Chor are locked in their correct positions.</span>
                   </li>
                 </ol>
               </div>
@@ -147,7 +144,7 @@ const HomePage: React.FC = () => {
       
       <footer className="bg-purple-950/70 py-4 border-t border-purple-800/50">
         <div className="container mx-auto px-4 text-center text-purple-300 text-sm">
-          Chain of Command &copy; {new Date().getFullYear()} — A royal game of deduction
+          Raja Rani Mantri &copy; {new Date().getFullYear()} — A royal game of deduction
         </div>
       </footer>
     </div>

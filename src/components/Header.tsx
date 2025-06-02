@@ -21,7 +21,7 @@ const Header: React.FC = () => {
       <div className="container mx-auto px-4 flex items-center justify-between">
         <Link to="/" className="flex items-center">
           <Crown className="text-yellow-400 h-6 w-6 mr-2" />
-          <span className="text-white font-bold text-xl">Chain of Command</span>
+          <span className="text-white font-bold text-xl">Raja Rani Mantri</span>
         </Link>
 
         {user && (
