@@ -28,69 +28,60 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-const ROLES: Role[] = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
+const ROLES: Role[] = ['raja', 'rani', 'mantri', 'sipahi', 'chor'];
 
 const getRoleInfo = (role: Role): RoleInfo => {
   switch (role) {
-    case 'king':
+    case 'raja':
       return {
-        name: 'King',
+        name: 'Raja',
         icon: 'crown',
         color: 'text-yellow-400',
-        description: 'Find the Queen to secure your position',
-        points: 10,
+        description: 'The King of the kingdom',
+        points: 100,
         chainOrder: 1
       };
-    case 'queen':
+    case 'rani':
       return {
-        name: 'Queen',
+        name: 'Rani',
         icon: 'heart',
         color: 'text-pink-400',
-        description: 'Find the Minister to secure your position',
-        points: 9,
+        description: 'The Queen of the kingdom',
+        points: 80,
         chainOrder: 2
       };
-    case 'minister':
+    case 'mantri':
       return {
-        name: 'Minister',
+        name: 'Mantri',
         icon: 'building',
         color: 'text-blue-400',
-        description: 'Find the Soldier to secure your position',
-        points: 7,
+        description: 'The Minister of the kingdom',
+        points: 50,
         chainOrder: 3
       };
-    case 'soldier':
+    case 'sipahi':
       return {
-        name: 'Soldier',
+        name: 'Sipahi',
         icon: 'shield',
         color: 'text-green-400',
-        description: 'Find the Police to secure your position',
-        points: 6,
+        description: 'The Guard of the kingdom',
+        points: 25,
         chainOrder: 4
       };
-    case 'police':
+    case 'chor':
       return {
-        name: 'Police',
-        icon: 'siren',
-        color: 'text-indigo-400',
-        description: 'Find the Thief to secure your position',
-        points: 4,
-        chainOrder: 5
-      };
-    case 'thief':
-      return {
-        name: 'Thief',
+        name: 'Chor',
         icon: 'footprints',
         color: 'text-red-400',
-        description: 'Stay hidden from the Police',
+        description: 'The Thief who must avoid capture',
         points: 0,
-        chainOrder: 6
+        chainOrder: 5
       };
   }
 };
 
 const getNextRoleInChain = (currentRole: Role): Role | null => {
-  const roleOrder = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
+  const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'chor'];
   const currentIndex = roleOrder.indexOf(currentRole);
   return currentIndex < roleOrder.length - 1 ? roleOrder[currentIndex + 1] as Role : null;
 };
@@ -98,7 +89,7 @@ const getNextRoleInChain = (currentRole: Role): Role | null => {
 const isValidChainGuess = (players: Player[], currentPlayer: Player): boolean => {
   if (!currentPlayer.isCurrentTurn) return false;
   
-  const roleOrder = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
+  const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'chor'];
   
   // Get all locked players in order of their roles
   const lockedPlayers = players
@@ -109,9 +100,9 @@ const isValidChainGuess = (players: Player[], currentPlayer: Player): boolean =>
       return roleA - roleB;
     });
 
-  // If no players are locked, only the King can make the first guess
+  // If no players are locked, only the Raja can make the first guess
   if (lockedPlayers.length === 0) {
-    return currentPlayer.role === 'king';
+    return currentPlayer.role === 'raja';
   }
 
   // Get the last locked role in the chain
@@ -254,7 +245,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       }
 
       const currentPlayers = gameData.players || [];
-      if (currentPlayers.length >= 6) {
+      if (currentPlayers.length >= 5) {
         toast.error('Game is full');
         return false;
       }
@@ -296,8 +287,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const snapshot = await get(gameRef);
       const game = snapshot.val();
 
-      if (game.players.length !== 6) {
-        toast.error('Need 6 players to start the game');
+      if (game.players.length !== 5) {
+        toast.error('Need 5 players to start the game');
         return;
       }
 
@@ -305,7 +296,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const playersWithRoles = game.players.map((player: Player, index: number) => ({
         ...player,
         role: shuffledRoles[index],
-        isCurrentTurn: shuffledRoles[index] === 'king'
+        isCurrentTurn: shuffledRoles[index] === 'raja'
       }));
 
       await update(gameRef, {
@@ -360,8 +351,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         message: `Correct! You found the ${getRoleInfo(nextRole as Role).name}!`
       });
 
-      // Check if game is complete (all players except thief are locked)
-      const unlockedPlayers = updatedPlayers.filter(p => !p.isLocked && p.role !== 'thief');
+      // Check if game is complete (all players except chor are locked)
+      const unlockedPlayers = updatedPlayers.filter(p => !p.isLocked && p.role !== 'chor');
       if (unlockedPlayers.length === 0) {
         await update(gameRef, { state: 'completed' });
       }

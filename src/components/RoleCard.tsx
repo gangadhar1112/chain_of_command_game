@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crown, Heart, Building2, Shield, Siren, Footprints, Lock } from 'lucide-react';
+import { Crown, Heart, Scroll, Shield, Footprints, Lock } from 'lucide-react';
 import { Role } from '../types/gameTypes';
 
 interface RoleCardProps {
@@ -10,64 +10,54 @@ interface RoleCardProps {
 const RoleCard: React.FC<RoleCardProps> = ({ role, isLocked }) => {
   const getRoleDetails = () => {
     switch (role) {
-      case 'king':
+      case 'raja':
         return {
-          name: 'King',
+          name: 'Raja',
           icon: <Crown className="h-6 w-6 sm:h-8 sm:w-8" />,
           color: 'text-yellow-400',
           bg: 'bg-yellow-900/30',
           border: 'border-yellow-700/50',
-          description: 'You must find the Queen to secure your position.',
-          points: 10,
+          description: 'You must find the Rani to secure your position.',
+          points: 100,
         };
-      case 'queen':
+      case 'rani':
         return {
-          name: 'Queen',
+          name: 'Rani',
           icon: <Heart className="h-6 w-6 sm:h-8 sm:w-8" />,
           color: 'text-pink-400',
           bg: 'bg-pink-900/30',
           border: 'border-pink-700/50',
-          description: 'You must find the Minister to secure your position.',
-          points: 9,
+          description: 'You must find the Mantri to secure your position.',
+          points: 80,
         };
-      case 'minister':
+      case 'mantri':
         return {
-          name: 'Minister',
-          icon: <Building2 className="h-6 w-6 sm:h-8 sm:w-8" />,
+          name: 'Mantri',
+          icon: <Scroll className="h-6 w-6 sm:h-8 sm:w-8" />,
           color: 'text-blue-400',
           bg: 'bg-blue-900/30',
           border: 'border-blue-700/50',
-          description: 'You must find the Soldier to secure your position.',
-          points: 7,
+          description: 'You must find the Sipahi to secure your position.',
+          points: 50,
         };
-      case 'soldier':
+      case 'sipahi':
         return {
-          name: 'Soldier',
+          name: 'Sipahi',
           icon: <Shield className="h-6 w-6 sm:h-8 sm:w-8" />,
           color: 'text-green-400',
           bg: 'bg-green-900/30',
           border: 'border-green-700/50',
-          description: 'You must find the Police to secure your position.',
-          points: 6,
+          description: 'You must find the Chor to secure your position.',
+          points: 25,
         };
-      case 'police':
+      case 'chor':
         return {
-          name: 'Police',
-          icon: <Siren className="h-6 w-6 sm:h-8 sm:w-8" />,
-          color: 'text-indigo-400',
-          bg: 'bg-indigo-900/30',
-          border: 'border-indigo-700/50',
-          description: 'You must find the Thief to secure your position.',
-          points: 4,
-        };
-      case 'thief':
-        return {
-          name: 'Thief',
+          name: 'Chor',
           icon: <Footprints className="h-6 w-6 sm:h-8 sm:w-8" />,
           color: 'text-red-400',
           bg: 'bg-red-900/30',
           border: 'border-red-700/50',
-          description: 'Stay hidden from the Police!',
+          description: 'Stay hidden from the Sipahi!',
           points: 0,
         };
       default:
@@ -135,12 +125,11 @@ const RoleCard: React.FC<RoleCardProps> = ({ role, isLocked }) => {
 
 const roleChainPosition = (role: Role): string => {
   const positions = {
-    king: '1st',
-    queen: '2nd',
-    minister: '3rd',
-    soldier: '4th',
-    police: '5th',
-    thief: '6th',
+    raja: '1st',
+    rani: '2nd',
+    mantri: '3rd',
+    sipahi: '4th',
+    chor: '5th',
   };
   
   return positions[role] || 'Unknown';
