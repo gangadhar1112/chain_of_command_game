@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, ArrowLeft, Loader } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import ImageUpload from '../components/ImageUpload';
+import toast from 'react-hot-toast';
 
 const SignUpPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -54,12 +55,13 @@ const SignUpPage: React.FC = () => {
 
       if (profileImage) {
         const storage = getStorage();
-        const storageRef = ref(storage, `profile_images/${Date.now()}_${profileImage.name}`);
-        await uploadBytes(storageRef, profileImage);
-        photoURL = await getDownloadURL(storageRef);
+        const imageRef = storageRef(storage, `profile_images/${Date.now()}_${profileImage.name}`);
+        await uploadBytes(imageRef, profileImage);
+        photoURL = await getDownloadURL(imageRef);
       }
 
       await signUp(email.trim(), password, name.trim(), photoURL);
+      toast.success('Account created successfully!');
       navigate('/');
     } catch (err) {
       console.error('Signup error:', err);
@@ -80,6 +82,7 @@ const SignUpPage: React.FC = () => {
       } else {
         setError('An unexpected error occurred. Please try again.');
       }
+      toast.error('Failed to create account');
     } finally {
       setLoading(false);
     }
@@ -178,7 +181,7 @@ const SignUpPage: React.FC = () => {
                     Creating Account...
                   </span>
                 ) : (
-                  'Sign Up'
+                  'Create Account'
                 )}
               </Button>
             </div>
