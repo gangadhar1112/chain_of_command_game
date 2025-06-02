@@ -167,6 +167,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = snapshot.val();
       
       if (!data) {
+        localStorage.removeItem('currentGameId');
+        localStorage.removeItem('currentPlayerId');
         setGameState('waiting');
         setPlayers([]);
         setCurrentPlayer(null);
@@ -175,26 +177,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      if (data.gameState !== gameState) {
-        setGameState(data.gameState);
-      }
-
-      if (JSON.stringify(data.players) !== JSON.stringify(players)) {
-        setPlayers(data.players || []);
-        
-        if (currentPlayer) {
-          const updatedCurrentPlayer = data.players?.find((p: Player) => p.id === currentPlayer.id);
-          if (updatedCurrentPlayer && JSON.stringify(updatedCurrentPlayer) !== JSON.stringify(currentPlayer)) {
-            setCurrentPlayer(updatedCurrentPlayer);
-          }
+      setGameState(data.gameState);
+      setPlayers(data.players || []);
+      
+      if (currentPlayer) {
+        const updatedCurrentPlayer = data.players?.find((p: Player) => p.id === currentPlayer.id);
+        if (updatedCurrentPlayer) {
+          setCurrentPlayer(updatedCurrentPlayer);
         }
       }
-    }, {
-      startAt: Date.now()
     });
 
     return () => off(gameRef);
-  }, [gameId, currentPlayer, players, gameState]);
+  }, [gameId, currentPlayer]);
 
   useEffect(() => {
     if (!gameId || !user) return;
@@ -243,6 +238,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await update(ref(database), updates);
     
+    localStorage.setItem('currentGameId', newGameId);
+    localStorage.setItem('currentPlayerId', playerId);
+    
     setGameId(newGameId);
     setPlayers([newPlayer]);
     setCurrentPlayer(newPlayer);
@@ -261,23 +259,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const snapshot = await get(gameRef);
       const gameData = snapshot.val();
 
-      if (!gameData) {
-        console.error('Game not found');
-        return false;
-      }
-
-      if (gameData.gameState !== 'lobby') {
-        console.error('Game is not in lobby state');
+      if (!gameData || gameData.gameState !== 'lobby') {
         return false;
       }
 
       const currentPlayers = gameData.players || [];
       
-      const existingPlayer = currentPlayers.find(
-        (p: Player) => p.userId === user.id
-      );
-      
+      const existingPlayer = currentPlayers.find((p: Player) => p.userId === user.id);
       if (existingPlayer) {
+        localStorage.setItem('currentGameId', gameId);
+        localStorage.setItem('currentPlayerId', existingPlayer.id);
         setGameId(gameId);
         setPlayers(currentPlayers);
         setCurrentPlayer(existingPlayer);
@@ -287,7 +278,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (currentPlayers.length >= 6) {
-        console.error('Game is full');
         return false;
       }
 
@@ -303,6 +293,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       const updatedPlayers = [...currentPlayers, newPlayer];
+
+      localStorage.setItem('currentGameId', gameId);
+      localStorage.setItem('currentPlayerId', playerId);
 
       await debouncedSaveGameState(gameId, updatedPlayers, gameData.gameState);
       
@@ -511,24 +504,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [gameId, currentPlayer, players, gameState, debouncedSaveGameState, user]);
 
   return (
-    <GameContext.Provider
-      value={{
-        gameState,
-        currentPlayer,
-        players,
-        gameId,
-        isHost,
-        lastGuessResult,
-        createGame,
-        joinGame,
-        startGame,
-        makeGuess,
-        leaveGame,
-        getRoleInfo,
-        getNextRoleInChain,
-        clearGuessResult,
-      }}
-    >
+    <GameContext.Provider value={{
+      gameState,
+      currentPlayer,
+      players,
+      gameId,
+      isHost,
+      lastGuessResult,
+      createGame,
+      joinGame,
+      startGame,
+      makeGuess,
+      leaveGame,
+      getRoleInfo,
+      getNextRoleInChain,
+      clearGuessResult,
+    }}>
       {children}
     </GameContext.Provider>
   );
