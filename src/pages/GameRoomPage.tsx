@@ -95,12 +95,12 @@ const GameRoomPage: React.FC = () => {
   // Get role icon component
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'king': return <Crown className="h-6 w-6" />;
-      case 'queen': return <Heart className="h-6 w-6" />;
-      case 'minister': return <Building2 className="h-6 w-6" />;
-      case 'soldier': return <Shield className="h-6 w-6" />;
+      case 'raja': return <Crown className="h-6 w-6" />;
+      case 'rani': return <Heart className="h-6 w-6" />;
+      case 'mantri': return <Building2 className="h-6 w-6" />;
+      case 'sipahi': return <Shield className="h-6 w-6" />;
       case 'police': return <Siren className="h-6 w-6" />;
-      case 'thief': return <Footprints className="h-6 w-6" />;
+      case 'chor': return <Footprints className="h-6 w-6" />;
       default: return <HelpCircle className="h-6 w-6" />;
     }
   };
@@ -110,7 +110,7 @@ const GameRoomPage: React.FC = () => {
     if (!currentPlayer?.role) return null;
     
     const roleInfo = getRoleInfo(currentPlayer.role);
-    const roleChain = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
+    const roleChain = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
     const currentIndex = roleChain.indexOf(currentPlayer.role);
     
     if (currentIndex === -1 || currentIndex === roleChain.length - 1) {
@@ -147,7 +147,7 @@ const GameRoomPage: React.FC = () => {
     setSelectedPlayerId(null);
   };
 
-  const roleChain = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
+  const roleChain = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
   
   if (gameState === 'waiting') {
     return (
@@ -335,10 +335,10 @@ const GameRoomPage: React.FC = () => {
                   How to Play
                 </h3>
                 <ul className="space-y-2 text-purple-200 text-sm">
-                  <li>• The King starts and must find the Queen.</li>
-                  <li>• If correct, both players lock positions, and the Queen seeks the Minister.</li>
+                  <li>• The Raja starts and must find the Rani.</li>
+                  <li>• If correct, both players lock positions, and the Rani seeks the Mantri.</li>
                   <li>• If wrong, roles swap, and the guesser continues their turn.</li>
-                  <li>• The chain goes: King → Queen → Minister → Soldier → Police → Thief</li>
+                  <li>• The chain goes: Raja → Rani → Mantri → Sipahi → Police → Chor</li>
                   <li>• When all players are locked in correct positions, the game ends.</li>
                 </ul>
               </div>
