@@ -95,7 +95,9 @@ const getNextRoleInChain = (currentRole: Role): Role | null => {
   return currentIndex < roleOrder.length - 1 ? roleOrder[currentIndex + 1] as Role : null;
 };
 
-const isValidChainGuess = (players: Player[], currentPlayer: Player, targetPlayer: Player): boolean => {
+const isValidChainGuess = (players: Player[], currentPlayer: Player): boolean => {
+  if (!currentPlayer.isCurrentTurn) return false;
+  
   const roleOrder = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
   
   // Get all locked players in order of their roles
@@ -109,17 +111,16 @@ const isValidChainGuess = (players: Player[], currentPlayer: Player, targetPlaye
 
   // If no players are locked, only the King can make the first guess
   if (lockedPlayers.length === 0) {
-    return currentPlayer.role === 'king' && targetPlayer.role === 'queen';
+    return currentPlayer.role === 'king';
   }
 
   // Get the last locked role in the chain
   const lastLockedRole = lockedPlayers[lockedPlayers.length - 1].role as Role;
   const lastLockedIndex = roleOrder.indexOf(lastLockedRole);
-  const currentRoleIndex = roleOrder.indexOf(currentPlayer.role as Role);
-  const targetRoleIndex = roleOrder.indexOf(targetPlayer.role as Role);
-
-  // The current player must be the last locked role and target must be the next role in sequence
-  return currentRoleIndex === lastLockedIndex && targetRoleIndex === lastLockedIndex + 1;
+  const nextRoleIndex = lastLockedIndex + 1;
+  
+  // The current player must have the role that comes after the last locked role
+  return currentPlayer.role === roleOrder[nextRoleIndex];
 };
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -322,7 +323,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   };
 
   const makeGuess = async (targetPlayerId: string) => {
-    if (!gameId || !currentPlayer || !currentPlayer.isCurrentTurn) return;
+    if (!gameId || !currentPlayer) return;
 
     const gameRef = ref(database, `games/${gameId}`);
     const snapshot = await get(gameRef);
@@ -331,17 +332,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const targetPlayer = game.players.find((p: Player) => p.id === targetPlayerId);
     if (!targetPlayer || targetPlayer.isLocked) return;
 
-    const nextRole = getNextRoleInChain(currentPlayer.role as Role);
-
-    if (!isValidChainGuess(game.players, currentPlayer, targetPlayer)) {
-      toast.error('Invalid guess! You must follow the correct chain sequence.');
+    if (!isValidChainGuess(game.players, currentPlayer)) {
+      toast.error('It\'s not your turn! Wait for the previous player in the chain.');
       return;
     }
 
+    const nextRole = getNextRoleInChain(currentPlayer.role as Role);
+    
     if (targetPlayer.role === nextRole) {
+      // Correct guess
       const updatedPlayers = game.players.map((p: Player) => {
-        if (p.id === currentPlayer.id || p.id === targetPlayerId) {
-          return { ...p, isLocked: true, isCurrentTurn: p.id === targetPlayerId };
+        if (p.id === currentPlayer.id) {
+          return { ...p, isLocked: true, isCurrentTurn: false };
+        }
+        if (p.id === targetPlayerId) {
+          return { ...p, isLocked: true, isCurrentTurn: true };
         }
         return { ...p, isCurrentTurn: false };
       });
@@ -352,11 +357,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         message: `Correct! You found the ${getRoleInfo(nextRole as Role).name}!`
       });
 
+      // Check if game is complete
       const unlockedPlayers = updatedPlayers.filter((p: Player) => !p.isLocked && p.role !== 'thief');
       if (unlockedPlayers.length === 0) {
         await update(gameRef, { state: 'completed' });
       }
     } else {
+      // Incorrect guess - swap roles
       const updatedPlayers = game.players.map((p: Player) => {
         if (p.id === currentPlayer.id) {
           return { ...p, role: targetPlayer.role, isCurrentTurn: false };
