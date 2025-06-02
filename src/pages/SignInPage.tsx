@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import toast from 'react-hot-toast';
 
 const SignInPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -19,40 +20,53 @@ const SignInPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter both email and password');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await signIn(email, password);
+      await signIn(email.trim(), password);
       
       // Check if admin and redirect accordingly
-      if (email === 'gangadhar.g0516@gmail.com') {
+      if (email.trim() === 'gangadhar.g0516@gmail.com') {
         navigate('/admin');
+        toast.success('Welcome back, Admin!');
       } else {
         // Redirect to the previous page or home
         const from = location.state?.from || '/';
         navigate(from);
+        toast.success('Successfully signed in!');
       }
     } catch (err) {
+      console.error('Sign in error:', err);
+      
       if (err instanceof FirebaseError) {
         switch (err.code) {
           case 'auth/invalid-credential':
           case 'auth/wrong-password':
           case 'auth/user-not-found':
             setError('Invalid email or password');
+            toast.error('Invalid email or password');
             break;
           case 'auth/too-many-requests':
             setError('Too many failed attempts. Please try again later');
+            toast.error('Too many failed attempts');
             break;
           case 'auth/invalid-email':
             setError('Invalid email format');
+            toast.error('Invalid email format');
             break;
           default:
-            console.error('Sign in error:', err);
             setError('An error occurred while signing in');
+            toast.error('Sign in failed');
         }
       } else {
-        console.error('Unexpected error during sign in:', err);
         setError('An unexpected error occurred');
+        toast.error('An unexpected error occurred');
       }
     } finally {
       setIsLoading(false);
@@ -101,6 +115,7 @@ const SignInPage: React.FC = () => {
                   setError('');
                 }}
                 placeholder="Enter your password"
+                error={error}
                 disabled={isLoading}
               />
               <div className="mt-1 text-right">
