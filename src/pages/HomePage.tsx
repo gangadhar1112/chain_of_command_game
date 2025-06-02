@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Crown, Users, Trophy, Star, ChevronRight, Heart, Scroll, Shield, Footprints, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Crown, Users, Trophy, Star, ChevronRight, Heart, Scroll, Shield, Footprints, ArrowRight, ChevronDown, ChevronUp, Siren } from 'lucide-react';
 import Header from '../components/Header';
 import Button from '../components/Button';
 
@@ -13,6 +13,7 @@ const HomePage: React.FC = () => {
     { name: 'Rani', icon: Heart, color: 'text-pink-400', bg: 'bg-pink-900/30', points: 80 },
     { name: 'Mantri', icon: Scroll, color: 'text-blue-400', bg: 'bg-blue-900/30', points: 50 },
     { name: 'Sipahi', icon: Shield, color: 'text-green-400', bg: 'bg-green-900/30', points: 25 },
+    { name: 'Police', icon: Siren, color: 'text-indigo-400', bg: 'bg-indigo-900/30', points: 15 },
     { name: 'Chor', icon: Footprints, color: 'text-red-400', bg: 'bg-red-900/30', points: 0 }
   ];
 

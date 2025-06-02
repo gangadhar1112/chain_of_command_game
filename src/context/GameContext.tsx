@@ -28,7 +28,7 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-const ROLES: Role[] = ['raja', 'rani', 'mantri', 'sipahi', 'chor'];
+const ROLES: Role[] = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
 
 const getRoleInfo = (role: Role): RoleInfo => {
   switch (role) {
@@ -53,7 +53,7 @@ const getRoleInfo = (role: Role): RoleInfo => {
     case 'mantri':
       return {
         name: 'Mantri',
-        icon: 'building',
+        icon: 'scroll',
         color: 'text-blue-400',
         description: 'The Minister of the kingdom',
         points: 50,
@@ -68,6 +68,15 @@ const getRoleInfo = (role: Role): RoleInfo => {
         points: 25,
         chainOrder: 4
       };
+    case 'police':
+      return {
+        name: 'Police',
+        icon: 'siren',
+        color: 'text-indigo-400',
+        description: 'The Law enforcer of the kingdom',
+        points: 15,
+        chainOrder: 5
+      };
     case 'chor':
       return {
         name: 'Chor',
@@ -75,13 +84,13 @@ const getRoleInfo = (role: Role): RoleInfo => {
         color: 'text-red-400',
         description: 'The Thief who must avoid capture',
         points: 0,
-        chainOrder: 5
+        chainOrder: 6
       };
   }
 };
 
 const getNextRoleInChain = (currentRole: Role): Role | null => {
-  const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'chor'];
+  const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
   const currentIndex = roleOrder.indexOf(currentRole);
   return currentIndex < roleOrder.length - 1 ? roleOrder[currentIndex + 1] as Role : null;
 };
@@ -89,7 +98,7 @@ const getNextRoleInChain = (currentRole: Role): Role | null => {
 const isValidChainGuess = (players: Player[], currentPlayer: Player): boolean => {
   if (!currentPlayer.isCurrentTurn) return false;
   
-  const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'chor'];
+  const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
   
   // Get all locked players in order of their roles
   const lockedPlayers = players
@@ -245,7 +254,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       }
 
       const currentPlayers = gameData.players || [];
-      if (currentPlayers.length >= 5) {
+      if (currentPlayers.length >= 6) {
         toast.error('Game is full');
         return false;
       }
@@ -287,8 +296,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const snapshot = await get(gameRef);
       const game = snapshot.val();
 
-      if (game.players.length !== 5) {
-        toast.error('Need 5 players to start the game');
+      if (game.players.length !== 6) {
+        toast.error('Need 6 players to start the game');
         return;
       }
 
