@@ -209,43 +209,98 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const joinGame = useCallback(async (gameId: string, playerName: string): Promise<boolean> => {
-    if (!user) throw new Error('User must be authenticated to join a game');
+    if (!user) throw new Error('Must be logged in to join a game');
 
     const gameRef = ref(database, `games/${gameId}`);
-    const snapshot = await get(gameRef);
-    const gameData = snapshot.val();
+    
+    try {
+      const snapshot = await get(gameRef);
+      const gameData = snapshot.val();
 
-    if (!gameData || gameData.gameState !== 'waiting') {
+      if (!gameData) {
+        toast.error('Game not found');
+        return false;
+      }
+
+      if (gameData.gameState !== 'lobby') {
+        toast.error('Game has already started');
+        return false;
+      }
+
+      const currentPlayers = gameData.players || [];
+      
+      if (currentPlayers.length >= 6) {
+        toast.error('Game is full');
+        return false;
+      }
+
+      // Check if user is already in the game
+      const existingPlayer = currentPlayers.find(
+        (p: Player) => p.userId === user.id
+      );
+      
+      if (existingPlayer) {
+        setGameId(gameId);
+        setPlayers(currentPlayers);
+        setCurrentPlayer(existingPlayer);
+        setIsHost(existingPlayer.isHost);
+        setGameState(gameData.gameState);
+        return true;
+      }
+
+      const playerId = generateId(8);
+      const newPlayer: Player = {
+        id: playerId,
+        name: playerName.trim(),
+        role: null,
+        isHost: false,
+        isLocked: false,
+        isCurrentTurn: false,
+        userId: user.id,
+      };
+
+      const updatedPlayers = [...currentPlayers, newPlayer];
+
+      // Update game data with new player
+      const updates: { [key: string]: any } = {
+        [`games/${gameId}/players`]: updatedPlayers,
+        [`games/${gameId}/updatedAt`]: Date.now(),
+        [`games/${gameId}/lastHeartbeat`]: Date.now(),
+        [`userGames/${user.id}/${gameId}/lastActive`]: Date.now(),
+      };
+
+      await update(ref(database), updates);
+      
+      // Store game and player IDs in localStorage
+      localStorage.setItem('currentGameId', gameId);
+      localStorage.setItem('currentPlayerId', playerId);
+      
+      // Update local state
+      setGameId(gameId);
+      setPlayers(updatedPlayers);
+      setCurrentPlayer(newPlayer);
+      setIsHost(false);
+      setGameState('lobby');
+
+      // Set up presence system for the new player
+      const presenceRef = ref(database, `presence/${gameId}/${playerId}`);
+      await set(presenceRef, {
+        online: true,
+        lastSeen: Date.now(),
+        userId: user.id,
+        name: playerName.trim(),
+        timestamp: database.ServerValue.TIMESTAMP
+      });
+
+      onDisconnect(presenceRef).remove();
+
+      toast.success('Successfully joined the game!');
+      return true;
+    } catch (error) {
+      console.error('Error joining game:', error);
+      toast.error('Failed to join game');
       return false;
     }
-
-    const newPlayer: Player = {
-      id: generateId(),
-      name: playerName,
-      role: null,
-      points: 0,
-      isHost: false,
-      userId: user.id,
-      customRoleNames: {},
-    };
-
-    const updatedPlayers = [...(gameData.players || []), newPlayer];
-
-    await update(ref(database), {
-      [`games/${gameId}/players`]: updatedPlayers,
-      [`games/${gameId}/updatedAt`]: Date.now(),
-    });
-
-    localStorage.setItem('currentGameId', gameId);
-    localStorage.setItem('currentPlayerId', newPlayer.id);
-
-    setGameId(gameId);
-    setCurrentPlayer(newPlayer);
-    setPlayers(updatedPlayers);
-    setIsHost(false);
-    setGameState('waiting');
-
-    return true;
   }, [user]);
 
   const startGame = useCallback(() => {
@@ -490,6 +545,46 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
   }, [gameId, currentPlayer, players, gameState, updatePresence, handleGameInterruption]);
+
+  useEffect(() => {
+    if (!gameId) return;
+
+    const gameRef = ref(database, `games/${gameId}`);
+    const unsubscribe = onValue(gameRef, (snapshot) => {
+      const gameData = snapshot.val();
+      
+      if (!gameData) {
+        setGameState('waiting');
+        setPlayers([]);
+        setCurrentPlayer(null);
+        setGameId(null);
+        setIsHost(false);
+        localStorage.removeItem('currentGameId');
+        localStorage.removeItem('currentPlayerId');
+        return;
+      }
+
+      if (gameData.gameState !== gameState) {
+        setGameState(gameData.gameState);
+      }
+
+      if (JSON.stringify(gameData.players) !== JSON.stringify(players)) {
+        setPlayers(gameData.players || []);
+        
+        if (currentPlayer) {
+          const updatedCurrentPlayer = gameData.players?.find((p: Player) => p.id === currentPlayer.id);
+          if (updatedCurrentPlayer && JSON.stringify(updatedCurrentPlayer) !== JSON.stringify(currentPlayer)) {
+            setCurrentPlayer(updatedCurrentPlayer);
+            setIsHost(updatedCurrentPlayer.isHost);
+          }
+        }
+      }
+    });
+
+    return () => {
+      off(gameRef);
+    };
+  }, [gameId, currentPlayer, players, gameState]);
 
   useEffect(() => {
     const savedGameId = localStorage.getItem('currentGameId');
