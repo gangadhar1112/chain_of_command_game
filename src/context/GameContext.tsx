@@ -143,37 +143,54 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const createGame = useCallback(async (playerName: string, customRoleNames?: { [key in Role]?: string }): Promise<string> => {
-    if (!user) throw new Error('User must be authenticated to create a game');
+    if (!user) throw new Error('Must be logged in to create a game');
 
-    const newGameId = generateId();
+    const newGameId = generateId(6);
+    const playerId = generateId(8);
+    
     const newPlayer: Player = {
-      id: generateId(),
-      name: playerName,
+      id: playerId,
+      name: playerName.trim(),
       role: null,
-      points: 0,
       isHost: true,
+      isLocked: false,
+      isCurrentTurn: false,
       userId: user.id,
-      customRoleNames: customRoleNames || {},
+    };
+    
+    const updates = {
+      [`games/${newGameId}`]: {
+        gameId: newGameId,
+        players: [newPlayer],
+        gameState: 'lobby',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        lastHeartbeat: Date.now(),
+        customRoleNames: customRoleNames || {},
+      },
+      [`userGames/${user.id}/${newGameId}`]: {
+        joinedAt: Date.now(),
+        lastActive: Date.now(),
+      }
     };
 
-    await set(ref(database, `games/${newGameId}`), {
-      players: [newPlayer],
-      gameState: 'waiting',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      lastHeartbeat: Date.now(),
-    });
-
-    localStorage.setItem('currentGameId', newGameId);
-    localStorage.setItem('currentPlayerId', newPlayer.id);
-
-    setGameId(newGameId);
-    setCurrentPlayer(newPlayer);
-    setPlayers([newPlayer]);
-    setIsHost(true);
-    setGameState('waiting');
-
-    return newGameId;
+    try {
+      await update(ref(database), updates);
+      
+      localStorage.setItem('currentGameId', newGameId);
+      localStorage.setItem('currentPlayerId', playerId);
+      
+      setGameId(newGameId);
+      setPlayers([newPlayer]);
+      setCurrentPlayer(newPlayer);
+      setIsHost(true);
+      setGameState('lobby');
+      
+      return newGameId;
+    } catch (error) {
+      console.error('Error creating game:', error);
+      throw new Error('Failed to create game');
+    }
   }, [user]);
 
   const joinGame = useCallback(async (gameId: string, playerName: string): Promise<boolean> => {

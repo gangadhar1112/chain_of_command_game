@@ -1,28 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Crown, ArrowLeft, Settings } from 'lucide-react';
+import { Crown, ArrowLeft } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { Role } from '../types/gameTypes';
-
-const defaultRoleNames = {
-  king: 'King',
-  queen: 'Queen',
-  minister: 'Minister',
-  soldier: 'Soldier',
-  police: 'Police',
-  thief: 'Thief'
-};
+import toast from 'react-hot-toast';
 
 const CreateGamePage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
   const [error, setError] = useState('');
-  const [showCustomRoles, setShowCustomRoles] = useState(false);
-  const [customRoleNames, setCustomRoleNames] = useState<{ [key in Role]?: string }>(defaultRoleNames);
-  
+  const [isCreating, setIsCreating] = useState(false);
   const { createGame } = useGame();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
@@ -40,21 +29,26 @@ const CreateGamePage: React.FC = () => {
       setError('Please enter your name');
       return;
     }
+
+    if (!user) {
+      setError('You must be signed in to create a game');
+      navigate('/signin', { state: { from: '/create' } });
+      return;
+    }
     
     try {
-      const gameId = await createGame(playerName.trim(), customRoleNames);
+      setIsCreating(true);
+      setError('');
+      const gameId = await createGame(playerName.trim());
+      toast.success('Game created successfully!');
       navigate(`/game/${gameId}`);
     } catch (error) {
       console.error('Error creating game:', error);
       setError('Failed to create game. Please try again.');
+      toast.error('Failed to create game');
+    } finally {
+      setIsCreating(false);
     }
-  };
-
-  const handleRoleNameChange = (role: Role, value: string) => {
-    setCustomRoleNames(prev => ({
-      ...prev,
-      [role]: value || defaultRoleNames[role]
-    }));
   };
 
   if (loading) {
@@ -96,39 +90,19 @@ const CreateGamePage: React.FC = () => {
                 }}
                 placeholder="Enter your name"
                 error={error}
+                disabled={isCreating}
+                maxLength={20}
               />
             </div>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setShowCustomRoles(!showCustomRoles)}
-                className="flex items-center text-purple-300 hover:text-white transition-colors"
-              >
-                <Settings className="h-4 w-4 mr-1" />
-                {showCustomRoles ? 'Hide Custom Roles' : 'Customize Role Names'}
-              </button>
-            </div>
-
-            {showCustomRoles && (
-              <div className="space-y-3 pt-2">
-                <p className="text-sm text-purple-200">Customize the role names (optional):</p>
-                {Object.entries(defaultRoleNames).map(([role, defaultName]) => (
-                  <Input
-                    key={role}
-                    label={defaultName}
-                    id={`role-${role}`}
-                    value={customRoleNames[role as Role] || ''}
-                    onChange={(e) => handleRoleNameChange(role as Role, e.target.value)}
-                    placeholder={`Custom name for ${defaultName}`}
-                  />
-                ))}
-              </div>
-            )}
             
             <div className="pt-4">
-              <Button type="submit" color="primary" fullWidth>
-                Create Game
+              <Button 
+                type="submit" 
+                color="primary" 
+                fullWidth
+                disabled={isCreating}
+              >
+                {isCreating ? 'Creating Game...' : 'Create Game'}
               </Button>
             </div>
           </form>
@@ -137,6 +111,7 @@ const CreateGamePage: React.FC = () => {
             <button
               onClick={() => navigate('/')}
               className="text-purple-300 hover:text-white flex items-center justify-center mx-auto"
+              disabled={isCreating}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back to Home
