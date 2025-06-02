@@ -125,9 +125,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setGameState(game.state);
         setPlayers(game.players || []);
         
+        // Update current player's role if game is in progress
         if (game.state === 'playing') {
           const playerRole = game.players.find((p: Player) => p.userId === user?.id)?.role;
-          setCurrentRole(playerRole);
+          setCurrentRole(playerRole || null);
         }
 
         // Handle game interruption
@@ -202,17 +203,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       // Check if user is already in the game
       const existingPlayer = gameData.players?.find((p: Player) => p.userId === user.id);
       if (existingPlayer) {
+        // Allow rejoin for existing players
         setGameId(gameId);
         setGameState(gameData.state);
         setPlayers(gameData.players || []);
         setIsHost(existingPlayer.isHost);
+        setCurrentRole(existingPlayer.role);
         setupGameListeners(gameRef);
-
-        // If game is in progress, set the player's role
-        if (gameData.state === 'playing') {
-          setCurrentRole(existingPlayer.role);
-        }
-
         return true;
       }
 
