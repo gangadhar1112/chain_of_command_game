@@ -11,7 +11,7 @@ import Input from '../components/Input';
 import { generateId } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
-const PLAYER_TIMEOUT = 15000; // 15 seconds
+const PLAYER_TIMEOUT = 180000; // 3 minutes
 const REFRESH_INTERVAL = 3000; // 3 seconds
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
