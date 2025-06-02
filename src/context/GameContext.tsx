@@ -339,14 +339,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const nextRole = getNextRoleInChain(currentPlayer.role as Role);
     
     if (targetPlayer.role === nextRole) {
-      // Correct guess - only lock the current player if they're not the Queen
+      // Correct guess - only lock the current player
       const updatedPlayers = game.players.map((p: Player) => {
         if (p.id === currentPlayer.id) {
-          // Only lock if the current player is not the Queen
-          const shouldLock = currentPlayer.role !== 'queen';
           return { 
             ...p, 
-            isLocked: shouldLock,
+            isLocked: true,
             isCurrentTurn: false 
           };
         }
