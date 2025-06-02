@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { LogIn, ArrowLeft } from 'lucide-react';
+import { FirebaseError } from 'firebase/app';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
@@ -32,8 +33,28 @@ const SignInPage: React.FC = () => {
         navigate(from);
       }
     } catch (err) {
-      console.error('Sign in error:', err);
-      setError('Invalid email or password');
+      if (err instanceof FirebaseError) {
+        switch (err.code) {
+          case 'auth/invalid-credential':
+            setError('Invalid email or password');
+            break;
+          case 'auth/user-not-found':
+            setError('No account found with this email');
+            break;
+          case 'auth/wrong-password':
+            setError('Invalid email or password');
+            break;
+          case 'auth/too-many-requests':
+            setError('Too many failed attempts. Please try again later');
+            break;
+          default:
+            console.error('Sign in error:', err);
+            setError('An error occurred while signing in');
+        }
+      } else {
+        console.error('Unexpected error during sign in:', err);
+        setError('An unexpected error occurred');
+      }
     } finally {
       setIsLoading(false);
     }
