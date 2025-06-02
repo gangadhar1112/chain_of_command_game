@@ -370,9 +370,67 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Implementation will be added later
   }, []);
 
-  const leaveGame = useCallback(() => {
-    // Implementation will be added later
-  }, []);
+  const leaveGame = useCallback(async () => {
+    if (!gameId || !currentPlayer || !user) return;
+
+    try {
+      const gameRef = ref(database, `games/${gameId}`);
+      const snapshot = await get(gameRef);
+      const gameData = snapshot.val();
+
+      if (gameData) {
+        const updatedPlayers = gameData.players.filter((p: Player) => p.id !== currentPlayer.id);
+
+        if (updatedPlayers.length > 0) {
+          if (currentPlayer.isHost) {
+            updatedPlayers[0].isHost = true;
+          }
+
+          if (currentPlayer.isCurrentTurn && gameData.gameState === 'playing') {
+            const nextPlayer = updatedPlayers.find(p => !p.isLocked);
+            if (nextPlayer) {
+              nextPlayer.isCurrentTurn = true;
+            }
+          }
+
+          const updates: { [key: string]: any } = {
+            [`games/${gameId}/players`]: updatedPlayers,
+            [`games/${gameId}/updatedAt`]: Date.now(),
+          };
+
+          if (gameData.gameState === 'playing' && updatedPlayers.length < 6) {
+            updates[`games/${gameId}/gameState`] = 'lobby';
+            updatedPlayers.forEach(p => {
+              p.role = null;
+              p.isLocked = false;
+              p.isCurrentTurn = false;
+            });
+          }
+
+          await update(ref(database), updates);
+        } else {
+          await remove(gameRef);
+        }
+
+        await remove(ref(database, `presence/${gameId}/${currentPlayer.id}`));
+        await remove(ref(database, `userGames/${user.id}/${gameId}`));
+      }
+
+      localStorage.removeItem('currentGameId');
+      localStorage.removeItem('currentPlayerId');
+      
+      setGameState('waiting');
+      setCurrentPlayer(null);
+      setPlayers([]);
+      setGameId(null);
+      setIsHost(false);
+
+      toast.success('Left game successfully');
+    } catch (error) {
+      console.error('Error leaving game:', error);
+      toast.error('Error leaving game');
+    }
+  }, [gameId, currentPlayer, user]);
 
   const getRoleInfo = useCallback((role: Role): RoleInfo => {
     return roleInfoMap[role] || defaultContext.getRoleInfo();
@@ -399,7 +457,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const monitorPresence = async () => {
       try {
-        // Set up presence monitoring
         const playerPresenceRef = ref(database, `presence/${gameId}/${currentPlayer.id}`);
         await set(playerPresenceRef, {
           online: true,
@@ -408,10 +465,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: currentPlayer.name
         });
 
-        // Set up disconnect cleanup
         onDisconnect(playerPresenceRef).remove();
 
-        // Monitor other players' presence
         onValue(presenceRef, async (snapshot) => {
           if (cleanup) return;
 
@@ -420,7 +475,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let playersDisconnected = false;
           const disconnectedNames: string[] = [];
 
-          // Check for disconnected players
           currentPlayers.forEach(player => {
             if (!presence[player.id] && player.id !== currentPlayer.id) {
               playersDisconnected = true;
@@ -431,14 +485,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (playersDisconnected && gameState === 'playing') {
             handleGameInterruption(`Players disconnected: ${disconnectedNames.join(', ')}`);
             
-            // If host, clean up the game
             if (isHost) {
               await remove(gameRef);
             }
           }
         });
 
-        // Keep presence alive
         const intervalId = setInterval(async () => {
           if (!cleanup) {
             await set(playerPresenceRef, {
@@ -483,17 +535,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Update game state
-      setGameState(gameData.gameState);
-      setPlayers(gameData.players || []);
+      if (gameData.gameState !== gameState) {
+        setGameState(gameData.gameState);
+      }
 
-      // Update current player
-      if (currentPlayer) {
-        const updatedCurrentPlayer = gameData.players?.find(
-          (p: Player) => p.id === currentPlayer.id
-        );
-        if (updatedCurrentPlayer) {
-          setCurrentPlayer(updatedCurrentPlayer);
+      const updatedPlayers = gameData.players || [];
+      if (JSON.stringify(updatedPlayers) !== JSON.stringify(players)) {
+        setPlayers(updatedPlayers);
+
+        if (currentPlayer) {
+          const updatedCurrentPlayer = updatedPlayers.find(
+            (p: Player) => p.id === currentPlayer.id
+          );
+          if (updatedCurrentPlayer) {
+            setCurrentPlayer(updatedCurrentPlayer);
+          }
+        }
+
+        if (gameData.gameState === 'playing' && updatedPlayers.length < 6) {
+          handleGameInterruption('Not enough players to continue the game');
         }
       }
     }, {
@@ -504,7 +564,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cleanup = true;
       off(gameRef);
     };
-  }, [gameId, currentPlayer, handleGameInterruption]);
+  }, [gameId, currentPlayer, players, gameState, handleGameInterruption]);
 
   return (
     <GameContext.Provider value={{
