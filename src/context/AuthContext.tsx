@@ -13,6 +13,7 @@ import {
   updateEmail,
   updatePassword
 } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { ref, remove, set, get } from 'firebase/database';
 import { auth, database } from '../config/firebase';
 
@@ -176,7 +177,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         photoURL: userData?.photoURL || result.user.photoURL,
       });
     } catch (error) {
-      console.error('Signin error:', error);
+      // Only log non-invalid-credential errors
+      if (!(error instanceof FirebaseError) || error.code !== 'auth/invalid-credential') {
+        console.error('Signin error:', error);
+      }
       throw error;
     }
   };
