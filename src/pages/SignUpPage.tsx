@@ -29,6 +29,7 @@ const SignUpPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
+    // Validation
     if (!email.trim() || !name.trim()) {
       setError('Email and name are required');
       return;
@@ -49,6 +50,8 @@ const SignUpPage: React.FC = () => {
       return;
     }
 
+    const loadingToast = toast.loading('Creating your account...');
+
     try {
       setLoading(true);
       let photoURL = null;
@@ -61,13 +64,14 @@ const SignUpPage: React.FC = () => {
           photoURL = await getDownloadURL(snapshot.ref);
         } catch (uploadError) {
           console.error('Error uploading profile image:', uploadError);
-          toast.error('Failed to upload profile image');
-          // Continue with signup even if image upload fails
+          toast.error('Failed to upload profile image, but continuing with signup');
         }
       }
 
       await signUp(email.trim(), password, name.trim(), photoURL);
-      toast.success('Account created successfully!');
+      toast.success('Account created successfully!', {
+        id: loadingToast,
+      });
       navigate('/');
     } catch (err) {
       console.error('Signup error:', err);
@@ -88,7 +92,9 @@ const SignUpPage: React.FC = () => {
       } else {
         setError('An unexpected error occurred. Please try again.');
       }
-      toast.error('Failed to create account');
+      toast.error('Failed to create account', {
+        id: loadingToast,
+      });
     } finally {
       setLoading(false);
     }
