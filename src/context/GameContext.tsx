@@ -366,6 +366,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [gameId, isHost, players, currentPlayer]);
 
+  const getRoleInfo = useCallback((role: Role): RoleInfo => {
+    return roleInfoMap[role] || defaultContext.getRoleInfo();
+  }, []);
+
+  const getNextRoleInChain = useCallback((role: Role): Role | null => {
+    const currentIndex = roleChain.indexOf(role);
+    if (currentIndex === -1 || currentIndex === roleChain.length - 1) {
+      return null;
+    }
+    return roleChain[currentIndex + 1];
+  }, []);
+
+  const clearGuessResult = useCallback(() => {
+    setLastGuessResult(null);
+  }, []);
+
   const makeGuess = useCallback(async (targetPlayerId: string) => {
     if (!currentPlayer?.isCurrentTurn || !currentPlayer.role || gameState !== 'playing' || !gameId) {
       return;
@@ -531,22 +547,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.error('Error leaving game');
     }
   }, [gameId, currentPlayer, user]);
-
-  const getRoleInfo = useCallback((role: Role): RoleInfo => {
-    return roleInfoMap[role] || defaultContext.getRoleInfo();
-  }, []);
-
-  const getNextRoleInChain = useCallback((role: Role): Role | null => {
-    const currentIndex = roleChain.indexOf(role);
-    if (currentIndex === -1 || currentIndex === roleChain.length - 1) {
-      return null;
-    }
-    return roleChain[currentIndex + 1];
-  }, []);
-
-  const clearGuessResult = useCallback(() => {
-    setLastGuessResult(null);
-  }, []);
 
   useEffect(() => {
     if (!gameId || !currentPlayer || !user) return;
