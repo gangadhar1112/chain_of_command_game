@@ -148,6 +148,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setPlayers([initialPlayer]);
       setIsHost(true);
 
+      // Set up real-time updates
+      onValue(gameRef, (snapshot) => {
+        const game = snapshot.val();
+        if (game) {
+          setGameState(game.state);
+          setPlayers(game.players || []);
+          
+          if (game.state === 'playing') {
+            const playerRole = game.players.find((p: Player) => p.userId === user.id)?.role;
+            setCurrentRole(playerRole);
+          }
+        }
+      });
+
       return newGameId;
     } catch (error) {
       console.error('Error creating game:', error);
@@ -178,6 +192,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setGameState('lobby');
           setPlayers(gameData.players || []);
           setIsHost(existingPlayer.isHost);
+
+          // Set up real-time updates
+          onValue(gameRef, (snapshot) => {
+            const game = snapshot.val();
+            if (game) {
+              setGameState(game.state);
+              setPlayers(game.players || []);
+              
+              if (game.state === 'playing') {
+                const playerRole = game.players.find((p: Player) => p.userId === user.id)?.role;
+                setCurrentRole(playerRole);
+              }
+            }
+          });
+
           return true;
         }
         // If game is in progress, navigate to game page
