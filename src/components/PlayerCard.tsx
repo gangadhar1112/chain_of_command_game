@@ -82,14 +82,9 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
           </div>
           
           <div className="flex items-center">
-            {isCurrentPlayer && player.role ? (
+            {(isCurrentPlayer || player.isLocked) && player.role ? (
               <div className={`text-xs sm:text-sm flex items-center ${roleInfo?.color}`}>
                 {getRoleIcon(player.role)}
-                <span className="ml-1 truncate">{roleInfo?.name}</span>
-              </div>
-            ) : player.isLocked ? (
-              <div className={`text-xs sm:text-sm flex items-center ${roleInfo?.color}`}>
-                {getRoleIcon(player.role as string)}
                 <span className="ml-1 truncate">{roleInfo?.name}</span>
               </div>
             ) : (

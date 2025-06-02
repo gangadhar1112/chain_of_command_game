@@ -117,18 +117,9 @@ const isValidChainGuess = (players: Player[], currentPlayer: Player): boolean =>
   // Get the last locked role in the chain
   const lastLockedRole = lockedPlayers[lockedPlayers.length - 1].role as Role;
   const lastLockedIndex = roleOrder.indexOf(lastLockedRole);
-  const nextRoleIndex = lastLockedIndex + 1;
   
   // The current player must have the role that comes after the last locked role
-  return currentPlayer.role === roleOrder[nextRoleIndex];
-};
-
-const findNextTurnPlayer = (players: Player[], currentRole: Role): Player | undefined => {
-  const roleOrder = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
-  const currentIndex = roleOrder.indexOf(currentRole);
-  const nextRole = roleOrder[currentIndex + 1];
-  
-  return players.find(p => p.role === nextRole && !p.isLocked);
+  return currentPlayer.role === roleOrder[lastLockedIndex + 1];
 };
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -341,20 +332,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (!targetPlayer || targetPlayer.isLocked) return;
 
     if (!isValidChainGuess(game.players, currentPlayer)) {
-      toast.error('It\'s not your turn! Wait for the previous player in the chain.');
+      toast.error("It's not your turn! Wait for the previous player in the chain.");
       return;
     }
 
     const nextRole = getNextRoleInChain(currentPlayer.role as Role);
     
     if (targetPlayer.role === nextRole) {
-      // Correct guess - lock both players and pass turn to the next player
+      // Correct guess - lock current player and set next turn
       const updatedPlayers = game.players.map((p: Player) => {
         if (p.id === currentPlayer.id) {
           return { ...p, isLocked: true, isCurrentTurn: false };
         }
-        if (p.id === targetPlayerId) {
-          return { ...p, isLocked: true, isCurrentTurn: true };
+        if (p.id === targetPlayer.id) {
+          return { ...p, isCurrentTurn: true };
         }
         return { ...p, isCurrentTurn: false };
       });
@@ -365,13 +356,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         message: `Correct! You found the ${getRoleInfo(nextRole as Role).name}!`
       });
 
-      // Check if game is complete
+      // Check if game is complete (all players except thief are locked)
       const unlockedPlayers = updatedPlayers.filter(p => !p.isLocked && p.role !== 'thief');
       if (unlockedPlayers.length === 0) {
         await update(gameRef, { state: 'completed' });
       }
     } else {
-      // Incorrect guess - swap roles and reset turns
+      // Incorrect guess - swap roles and set turn to the new role holder
       const updatedPlayers = game.players.map((p: Player) => {
         if (p.id === currentPlayer.id) {
           return { 
@@ -380,7 +371,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
             isCurrentTurn: false
           };
         }
-        if (p.id === targetPlayerId) {
+        if (p.id === targetPlayer.id) {
           return { 
             ...p, 
             role: currentPlayer.role,
@@ -469,27 +460,25 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setGameState(prev => ({ ...prev, ...newState } as GameState));
   };
 
-  const value = {
-    gameState,
-    players,
-    currentRole,
-    isHost,
-    currentPlayer,
-    lastGuessResult,
-    showInterruptionModal,
-    interruptionReason,
-    joinGame,
-    createGame,
-    startGame,
-    endGame,
-    leaveGame,
-    makeGuess,
-    getRoleInfo,
-    updateGameState
-  };
-
   return (
-    <GameContext.Provider value={value}>
+    <GameContext.Provider value={{
+      gameState,
+      players,
+      currentRole,
+      isHost,
+      currentPlayer,
+      lastGuessResult,
+      showInterruptionModal,
+      interruptionReason,
+      joinGame,
+      createGame,
+      startGame,
+      endGame,
+      leaveGame,
+      makeGuess,
+      getRoleInfo,
+      updateGameState
+    }}>
       {children}
     </GameContext.Provider>
   );
