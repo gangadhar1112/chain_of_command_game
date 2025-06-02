@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { Heart, Crown, Building2, Shield, Siren, Footprints, Users, Clock, Award, HelpCircle, XCircle, Lock, CheckCircle2, XCircle as XCircle2 } from 'lucide-react';
+import { Heart, Crown, Building2, Shield, Siren, Footprints, Users, Clock, Award, HelpCircle, XCircle, Lock, CheckCircle2, XCircle2 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import PlayerCard from '../components/PlayerCard';
@@ -29,6 +30,39 @@ const GameRoomPage: React.FC = () => {
   
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+
+  // Handle celebration animation
+  useEffect(() => {
+    if (lastGuessResult?.correct) {
+      const duration = 2000;
+      const animationEnd = Date.now() + duration;
+      const colors = ['#FFD700', '#FFA500', '#FF69B4', '#4B0082'];
+
+      const frame = () => {
+        confetti({
+          particleCount: 2,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: colors
+        });
+        
+        confetti({
+          particleCount: 2,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: colors
+        });
+
+        if (Date.now() < animationEnd) {
+          requestAnimationFrame(frame);
+        }
+      };
+
+      frame();
+    }
+  }, [lastGuessResult]);
   
   // Handle game state and navigation
   useEffect(() => {
