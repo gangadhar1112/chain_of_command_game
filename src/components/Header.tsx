@@ -17,7 +17,7 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="bg-purple-900/80 backdrop-blur-sm py-4 shadow-md border-b border-purple-800/50">
+    <header className="bg-purple-900/80 backdrop-blur-sm py-4 shadow-md border-b border-purple-800/50 relative z-50">
       <div className="container mx-auto px-4 flex items-center justify-between">
         <Link to="/" className="flex items-center">
           <Crown className="text-yellow-400 h-6 w-6 mr-2" />
