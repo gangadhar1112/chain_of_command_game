@@ -40,8 +40,9 @@ const CreateGamePage: React.FC = () => {
       setIsCreating(true);
       setError('');
       const gameId = await createGame(playerName.trim());
-      toast.success('Game created successfully!');
-      navigate(`/game/${gameId}`);
+      if (gameId) {
+        navigate(`/game/${gameId}`);
+      }
     } catch (error) {
       console.error('Error creating game:', error);
       setError('Failed to create game. Please try again.');
