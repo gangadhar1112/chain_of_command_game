@@ -1,6 +1,6 @@
 import React from 'react';
 import { Player, Role, RoleInfo } from '../types/gameTypes';
-import { Trophy, Crown, Medal, Award, ArrowRight, Star, Shield, Heart, Building2, Siren, Footprints } from 'lucide-react';
+import { Trophy, Crown, Heart, Scroll, Shield, Footprints, ArrowRight, Star } from 'lucide-react';
 import Button from './Button';
 
 interface GameResultsProps {
@@ -39,13 +39,13 @@ const GameResults: React.FC<GameResultsProps> = ({
           Game Completed!
         </h1>
         <p className="text-purple-200 text-base md:text-lg">
-          The Chain of Command has been established
+          The final positions have been revealed
         </p>
       </div>
       
       <div className="mb-6 md:mb-8">
         <h2 className="text-xl md:text-2xl font-semibold text-white mb-4 flex items-center justify-center">
-          <Award className="text-yellow-400 mr-2 h-5 w-5 md:h-6 md:w-6" />
+          <Star className="text-yellow-400 mr-2 h-5 w-5 md:h-6 md:w-6" />
           Final Rankings
         </h2>
         
@@ -75,7 +75,7 @@ const GameResults: React.FC<GameResultsProps> = ({
                         {index === 0 ? (
                           <Crown className="text-yellow-900 h-5 w-5 md:h-6 md:w-6" />
                         ) : (
-                          <Medal className="text-gray-900 h-5 w-5 md:h-6 md:w-6" />
+                          <Trophy className="text-gray-900 h-5 w-5 md:h-6 md:w-6" />
                         )}
                       </div>
                     ) : (
@@ -113,21 +113,6 @@ const GameResults: React.FC<GameResultsProps> = ({
                     </div>
                   </div>
                 </div>
-                
-                <div className="mt-2 md:mt-3 flex flex-wrap gap-2">
-                  {index === 0 && (
-                    <div className="bg-yellow-900/30 text-yellow-400 px-2 py-1 md:px-3 rounded-full text-xs md:text-sm flex items-center">
-                      <Star className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                      Game Winner
-                    </div>
-                  )}
-                  {player.isLocked && (
-                    <div className="bg-green-900/30 text-green-400 px-2 py-1 md:px-3 rounded-full text-xs md:text-sm flex items-center">
-                      <Shield className="h-3 w-3 md:h-4 md:w-4 mr-1" />
-                      Perfect Chain
-                    </div>
-                  )}
-                </div>
               </div>
             );
           })}
@@ -147,12 +132,11 @@ const GameResults: React.FC<GameResultsProps> = ({
 // Helper function to get role icon
 const getRoleIcon = (role: string) => {
   switch (role) {
-    case 'king': return <Crown className="h-4 w-4 md:h-5 md:w-5" />;
-    case 'queen': return <Heart className="h-4 w-4 md:h-5 md:w-5" />;
-    case 'minister': return <Building2 className="h-4 w-4 md:h-5 md:w-5" />;
-    case 'soldier': return <Shield className="h-4 w-4 md:h-5 md:w-5" />;
-    case 'police': return <Siren className="h-4 w-4 md:h-5 md:w-5" />;
-    case 'thief': return <Footprints className="h-4 w-4 md:h-5 md:w-5" />;
+    case 'raja': return <Crown className="h-4 w-4 md:h-5 md:w-5" />;
+    case 'rani': return <Heart className="h-4 w-4 md:h-5 md:w-5" />;
+    case 'mantri': return <Scroll className="h-4 w-4 md:h-5 md:w-5" />;
+    case 'sipahi': return <Shield className="h-4 w-4 md:h-5 md:w-5" />;
+    case 'chor': return <Footprints className="h-4 w-4 md:h-5 md:w-5" />;
     default: return null;
   }
 };
