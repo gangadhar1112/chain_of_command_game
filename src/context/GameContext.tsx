@@ -15,7 +15,7 @@ interface GameContextType {
   gameId: string | null;
   isHost: boolean;
   lastGuessResult: { correct: boolean; message: string } | null;
-  createGame: (playerName: string) => Promise<string>;
+  createGame: (playerName: string, customRoleNames?: { [key in Role]?: string }) => Promise<string>;
   joinGame: (gameId: string, playerName: string) => Promise<boolean>;
   startGame: () => void;
   makeGuess: (targetPlayerId: string) => void;
@@ -205,7 +205,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(heartbeatInterval);
   }, [gameId, user]);
 
-  const createGame = useCallback(async (playerName: string): Promise<string> => {
+  const createGame = useCallback(async (
+    playerName: string,
+    customRoleNames?: { [key in Role]?: string }
+  ): Promise<string> => {
     if (!user) throw new Error('Must be logged in to create a game');
 
     const newGameId = generateId(6);
@@ -229,6 +232,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: Date.now(),
         updatedAt: Date.now(),
         lastHeartbeat: Date.now(),
+        customRoleNames,
       },
       [`userGames/${user.id}/${newGameId}`]: {
         joinedAt: Date.now(),
