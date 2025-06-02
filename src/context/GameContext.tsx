@@ -118,6 +118,21 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     };
   }, [gameId]);
 
+  const setupGameListeners = (gameRef: any) => {
+    onValue(gameRef, (snapshot) => {
+      const game = snapshot.val();
+      if (game) {
+        setGameState(game.state);
+        setPlayers(game.players || []);
+        
+        if (game.state === 'playing') {
+          const playerRole = game.players.find((p: Player) => p.userId === user?.id)?.role;
+          setCurrentRole(playerRole);
+        }
+      }
+    });
+  };
+
   const createGame = async (playerName: string): Promise<string> => {
     if (!user) throw new Error('Must be signed in to create a game');
 
@@ -148,19 +163,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setPlayers([initialPlayer]);
       setIsHost(true);
 
-      // Set up real-time updates
-      onValue(gameRef, (snapshot) => {
-        const game = snapshot.val();
-        if (game) {
-          setGameState(game.state);
-          setPlayers(game.players || []);
-          
-          if (game.state === 'playing') {
-            const playerRole = game.players.find((p: Player) => p.userId === user.id)?.role;
-            setCurrentRole(playerRole);
-          }
-        }
-      });
+      setupGameListeners(gameRef);
 
       return newGameId;
     } catch (error) {
@@ -192,23 +195,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setGameState('lobby');
           setPlayers(gameData.players || []);
           setIsHost(existingPlayer.isHost);
-
-          // Set up real-time updates
-          onValue(gameRef, (snapshot) => {
-            const game = snapshot.val();
-            if (game) {
-              setGameState(game.state);
-              setPlayers(game.players || []);
-              
-              if (game.state === 'playing') {
-                const playerRole = game.players.find((p: Player) => p.userId === user.id)?.role;
-                setCurrentRole(playerRole);
-              }
-            }
-          });
-
+          setupGameListeners(gameRef);
           return true;
         }
+        
         // If game is in progress, navigate to game page
         navigate(`/game/${gameId}`);
         return true;
@@ -244,19 +234,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setPlayers([...currentPlayers, newPlayer]);
       setIsHost(false);
 
-      // Set up real-time updates
-      onValue(gameRef, (snapshot) => {
-        const game = snapshot.val();
-        if (game) {
-          setGameState(game.state);
-          setPlayers(game.players || []);
-          
-          if (game.state === 'playing') {
-            const playerRole = game.players.find((p: Player) => p.userId === user.id)?.role;
-            setCurrentRole(playerRole);
-          }
-        }
-      });
+      setupGameListeners(gameRef);
 
       return true;
     } catch (error) {
