@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Crown, LogOut, UserCircle } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { Crown, LogOut, UserCircle, Shield } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from './Button';
 
 const Header: React.FC = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const { user, logout } = useAuth();
+  const location = useLocation();
 
   const handleLogout = async () => {
     try {
@@ -15,6 +16,8 @@ const Header: React.FC = () => {
       console.error('Logout error:', error);
     }
   };
+
+  const isAdmin = user?.email === 'gangadhar.g0516@gmail.com';
 
   return (
     <header className="bg-purple-900/80 backdrop-blur-sm py-4 shadow-md border-b border-purple-800/50 relative z-50">
@@ -50,6 +53,15 @@ const Header: React.FC = () => {
                   <p className="text-sm text-purple-200">Signed in as</p>
                   <p className="text-sm font-medium text-white truncate">{user.email}</p>
                 </div>
+                {isAdmin && location.pathname !== '/admin' && (
+                  <Link
+                    to="/admin"
+                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-purple-700 flex items-center"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Admin Dashboard
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="w-full text-left px-4 py-2 text-sm text-white hover:bg-purple-700 flex items-center"
