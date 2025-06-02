@@ -389,6 +389,7 @@ const GameRoomPage: React.FC = () => {
       <GameInterruptionModal
         show={showInterruptionModal}
         reason={interruptionReason}
+        onClose={handleLeaveGame}
       />
     </div>
   );
