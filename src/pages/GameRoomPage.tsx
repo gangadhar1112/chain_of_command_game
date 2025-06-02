@@ -85,7 +85,7 @@ const GameRoomPage: React.FC = () => {
   
   // Handle player selection for guessing
   const handleSelectPlayer = (playerId: string) => {
-    if (!currentPlayer?.isCurrentTurn || currentPlayer.isLocked) {
+    if (!currentPlayer?.isCurrentTurn) {
       return;
     }
     
