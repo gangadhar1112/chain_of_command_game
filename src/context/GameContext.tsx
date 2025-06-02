@@ -123,6 +123,14 @@ const isValidChainGuess = (players: Player[], currentPlayer: Player): boolean =>
   return currentPlayer.role === roleOrder[nextRoleIndex];
 };
 
+const findNextTurnPlayer = (players: Player[], currentRole: Role): Player | undefined => {
+  const roleOrder = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
+  const currentIndex = roleOrder.indexOf(currentRole);
+  const nextRole = roleOrder[currentIndex + 1];
+  
+  return players.find(p => p.role === nextRole && !p.isLocked);
+};
+
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -340,7 +348,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const nextRole = getNextRoleInChain(currentPlayer.role as Role);
     
     if (targetPlayer.role === nextRole) {
-      // Correct guess
+      // Correct guess - lock both players and pass turn to the next player
       const updatedPlayers = game.players.map((p: Player) => {
         if (p.id === currentPlayer.id) {
           return { ...p, isLocked: true, isCurrentTurn: false };
@@ -358,18 +366,26 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Check if game is complete
-      const unlockedPlayers = updatedPlayers.filter((p: Player) => !p.isLocked && p.role !== 'thief');
+      const unlockedPlayers = updatedPlayers.filter(p => !p.isLocked && p.role !== 'thief');
       if (unlockedPlayers.length === 0) {
         await update(gameRef, { state: 'completed' });
       }
     } else {
-      // Incorrect guess - swap roles
+      // Incorrect guess - swap roles and reset turns
       const updatedPlayers = game.players.map((p: Player) => {
         if (p.id === currentPlayer.id) {
-          return { ...p, role: targetPlayer.role, isCurrentTurn: false };
+          return { 
+            ...p, 
+            role: targetPlayer.role,
+            isCurrentTurn: false
+          };
         }
         if (p.id === targetPlayerId) {
-          return { ...p, role: currentPlayer.role, isCurrentTurn: true };
+          return { 
+            ...p, 
+            role: currentPlayer.role,
+            isCurrentTurn: true
+          };
         }
         return { ...p, isCurrentTurn: false };
       });
