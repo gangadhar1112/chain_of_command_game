@@ -40,19 +40,23 @@ const GameRoomPage: React.FC = () => {
 
       const frame = () => {
         confetti({
-          particleCount: 2,
+          particleCount: 3,
           angle: 60,
           spread: 55,
           origin: { x: 0 },
-          colors: colors
+          colors: colors,
+          shapes: ['circle', 'square'],
+          ticks: 200
         });
         
         confetti({
-          particleCount: 2,
+          particleCount: 3,
           angle: 120,
           spread: 55,
           origin: { x: 1 },
-          colors: colors
+          colors: colors,
+          shapes: ['circle', 'square'],
+          ticks: 200
         });
 
         if (Date.now() < animationEnd) {
@@ -122,16 +126,16 @@ const GameRoomPage: React.FC = () => {
     if (!currentPlayer?.isCurrentTurn) {
       return;
     }
-    
+
     if (playerId === currentPlayer.id) {
       return; // Can't select yourself
     }
-    
+
     const targetPlayer = players.find(p => p.id === playerId);
-    if (targetPlayer?.isLocked) {
+    if (!targetPlayer || targetPlayer.isLocked) {
       return; // Can't select locked players
     }
-    
+
     setSelectedPlayerId(playerId);
   };
   
