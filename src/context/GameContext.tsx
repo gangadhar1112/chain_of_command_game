@@ -366,9 +366,109 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [gameId, isHost, players, currentPlayer]);
 
-  const makeGuess = useCallback((targetPlayerId: string) => {
-    // Implementation will be added later
-  }, []);
+  const makeGuess = useCallback(async (targetPlayerId: string) => {
+    if (!currentPlayer?.isCurrentTurn || !currentPlayer.role || gameState !== 'playing' || !gameId) {
+      return;
+    }
+    
+    const targetPlayer = players.find(p => p.id === targetPlayerId);
+    if (!targetPlayer || targetPlayer.isLocked || currentPlayer.isLocked) {
+      return;
+    }
+
+    try {
+      const expectedNextRole = getNextRoleInChain(currentPlayer.role);
+      const isCorrectGuess = targetPlayer.role === expectedNextRole;
+      
+      let updatedPlayers = [...players];
+      
+      if (isCorrectGuess) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+
+        updatedPlayers = updatedPlayers.map(p => {
+          if (p.id === currentPlayer.id) {
+            return { ...p, isLocked: true, isCurrentTurn: false };
+          }
+          if (p.id === targetPlayer.id) {
+            return { ...p, isCurrentTurn: true };
+          }
+          return { ...p, isCurrentTurn: false };
+        });
+
+        setLastGuessResult({
+          correct: true,
+          message: `Correct! You found the ${roleInfoMap[targetPlayer.role].name}!`
+        });
+        
+        toast.success(`You found the ${roleInfoMap[targetPlayer.role].name}!`, {
+          duration: 3000,
+          icon: '🎯',
+        });
+      } else {
+        if (navigator.vibrate) {
+          navigator.vibrate(200);
+        }
+
+        const tempRole = currentPlayer.role;
+        updatedPlayers = updatedPlayers.map(p => {
+          if (p.id === currentPlayer.id) {
+            return { ...p, role: targetPlayer.role, isCurrentTurn: false };
+          }
+          if (p.id === targetPlayer.id) {
+            return { ...p, role: tempRole, isCurrentTurn: false };
+          }
+          return { ...p, isCurrentTurn: false };
+        });
+
+        setLastGuessResult({
+          correct: false,
+          message: `Wrong guess! You swapped roles with ${targetPlayer.name}.`
+        });
+        
+        toast.error(`Wrong guess! You swapped roles with ${targetPlayer.name}`, {
+          duration: 3000,
+          icon: '❌',
+        });
+
+        // After a wrong guess, the King (whether original or new) gets the next turn
+        const newKingPlayer = updatedPlayers.find(p => p.role === 'king' && !p.isLocked);
+        if (newKingPlayer) {
+          newKingPlayer.isCurrentTurn = true;
+        }
+      }
+      
+      const allPlayersLocked = updatedPlayers.every(p => p.isLocked || p.role === 'thief');
+      
+      if (allPlayersLocked) {
+        setGameState('completed');
+        await update(ref(database), {
+          [`games/${gameId}/players`]: updatedPlayers,
+          [`games/${gameId}/gameState`]: 'completed',
+          [`games/${gameId}/updatedAt`]: Date.now(),
+        });
+      } else {
+        await update(ref(database), {
+          [`games/${gameId}/players`]: updatedPlayers,
+          [`games/${gameId}/updatedAt`]: Date.now(),
+        });
+      }
+      
+      setPlayers(updatedPlayers);
+      const updatedCurrentPlayer = updatedPlayers.find(p => p.id === currentPlayer.id);
+      if (updatedCurrentPlayer) {
+        setCurrentPlayer(updatedCurrentPlayer);
+      }
+
+      setTimeout(clearGuessResult, 3000);
+    } catch (error) {
+      console.error('Error making guess:', error);
+      toast.error('Failed to make guess. Please try again.');
+    }
+  }, [currentPlayer, players, gameState, gameId, getNextRoleInChain, clearGuessResult]);
 
   const leaveGame = useCallback(async () => {
     if (!gameId || !currentPlayer || !user) return;
