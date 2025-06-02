@@ -12,6 +12,7 @@ export interface RoleInfo {
   description: string;
   points: number;
   chainOrder: number;
+  customName?: string; // Added for custom role names
 }
 
 // Player interface
@@ -22,7 +23,7 @@ export interface Player {
   isHost: boolean;
   isLocked: boolean;
   isCurrentTurn: boolean;
-  userId: string; // Added to track which user owns this player
+  userId: string;
 }
 
 // Game interface
@@ -32,4 +33,5 @@ export interface Game {
   state: GameState;
   currentTurnPlayerId: string | null;
   createdAt: number;
+  customRoleNames?: { [key in Role]?: string }; // Added for custom role names
 }

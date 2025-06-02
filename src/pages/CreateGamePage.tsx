@@ -1,15 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Crown, ArrowLeft } from 'lucide-react';
+import { Crown, ArrowLeft, Settings } from 'lucide-react';
 import { useGame } from '../context/GameContext';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import { Role } from '../types/gameTypes';
+
+const defaultRoleNames = {
+  king: 'King',
+  queen: 'Queen',
+  minister: 'Minister',
+  soldier: 'Soldier',
+  police: 'Police',
+  thief: 'Thief'
+};
 
 const CreateGamePage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
   const [error, setError] = useState('');
+  const [showCustomRoles, setShowCustomRoles] = useState(false);
+  const [customRoleNames, setCustomRoleNames] = useState<{ [key in Role]?: string }>(defaultRoleNames);
+  
   const { createGame } = useGame();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
@@ -29,12 +42,19 @@ const CreateGamePage: React.FC = () => {
     }
     
     try {
-      const gameId = await createGame(playerName.trim());
+      const gameId = await createGame(playerName.trim(), customRoleNames);
       navigate(`/game/${gameId}`);
     } catch (error) {
       console.error('Error creating game:', error);
       setError('Failed to create game. Please try again.');
     }
+  };
+
+  const handleRoleNameChange = (role: Role, value: string) => {
+    setCustomRoleNames(prev => ({
+      ...prev,
+      [role]: value || defaultRoleNames[role]
+    }));
   };
 
   if (loading) {
@@ -78,6 +98,33 @@ const CreateGamePage: React.FC = () => {
                 error={error}
               />
             </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCustomRoles(!showCustomRoles)}
+                className="flex items-center text-purple-300 hover:text-white transition-colors"
+              >
+                <Settings className="h-4 w-4 mr-1" />
+                {showCustomRoles ? 'Hide Custom Roles' : 'Customize Role Names'}
+              </button>
+            </div>
+
+            {showCustomRoles && (
+              <div className="space-y-3 pt-2">
+                <p className="text-sm text-purple-200">Customize the role names (optional):</p>
+                {Object.entries(defaultRoleNames).map(([role, defaultName]) => (
+                  <Input
+                    key={role}
+                    label={defaultName}
+                    id={`role-${role}`}
+                    value={customRoleNames[role as Role] || ''}
+                    onChange={(e) => handleRoleNameChange(role as Role, e.target.value)}
+                    placeholder={`Custom name for ${defaultName}`}
+                  />
+                ))}
+              </div>
+            )}
             
             <div className="pt-4">
               <Button type="submit" color="primary" fullWidth>
