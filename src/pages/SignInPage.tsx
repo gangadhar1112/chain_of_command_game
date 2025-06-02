@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { LogIn, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
@@ -10,18 +10,32 @@ const SignInPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     try {
       await signIn(email, password);
-      navigate('/');
+      
+      // Check if admin and redirect accordingly
+      if (email === 'gangadhar.g0516@gmail.com') {
+        navigate('/admin');
+      } else {
+        // Redirect to the previous page or home
+        const from = location.state?.from || '/';
+        navigate(from);
+      }
     } catch (err) {
+      console.error('Sign in error:', err);
       setError('Invalid email or password');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -47,8 +61,12 @@ const SignInPage: React.FC = () => {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError('');
+              }}
               placeholder="Enter your email"
+              disabled={isLoading}
             />
             
             <div>
@@ -57,8 +75,12 @@ const SignInPage: React.FC = () => {
                 id="password"
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
                 placeholder="Enter your password"
+                disabled={isLoading}
               />
               <div className="mt-1 text-right">
                 <Link 
@@ -75,8 +97,13 @@ const SignInPage: React.FC = () => {
             )}
             
             <div className="pt-4">
-              <Button type="submit" color="primary" fullWidth>
-                Sign In
+              <Button 
+                type="submit" 
+                color="primary" 
+                fullWidth
+                disabled={isLoading}
+              >
+                {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
             </div>
           </form>
@@ -92,6 +119,7 @@ const SignInPage: React.FC = () => {
             <button
               onClick={() => navigate('/')}
               className="text-purple-300 hover:text-white flex items-center justify-center mx-auto"
+              disabled={isLoading}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back to Home
