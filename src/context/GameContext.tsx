@@ -129,6 +129,19 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           const playerRole = game.players.find((p: Player) => p.userId === user?.id)?.role;
           setCurrentRole(playerRole);
         }
+
+        // Handle game interruption
+        if (game.state === 'interrupted') {
+          setShowInterruptionModal(true);
+          setInterruptionReason(game.interruptionReason || 'Game was interrupted');
+        }
+      } else {
+        // Game was deleted or doesn't exist
+        setGameState('waiting');
+        setPlayers([]);
+        setCurrentRole(null);
+        setIsHost(false);
+        navigate('/');
       }
     });
   };
@@ -189,15 +202,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       // Check if user is already in the game
       const existingPlayer = gameData.players?.find((p: Player) => p.userId === user.id);
       if (existingPlayer) {
-        // If the game is in lobby or playing, allow rejoin
-        if (gameData.state === 'lobby' || gameData.state === 'playing') {
-          setGameId(gameId);
-          setGameState(gameData.state);
-          setPlayers(gameData.players || []);
-          setIsHost(existingPlayer.isHost);
-          setupGameListeners(gameRef);
-          return true;
+        setGameId(gameId);
+        setGameState(gameData.state);
+        setPlayers(gameData.players || []);
+        setIsHost(existingPlayer.isHost);
+        setupGameListeners(gameRef);
+
+        // If game is in progress, set the player's role
+        if (gameData.state === 'playing') {
+          setCurrentRole(existingPlayer.role);
         }
+
+        return true;
       }
 
       // Only allow new players to join if the game is in lobby state
