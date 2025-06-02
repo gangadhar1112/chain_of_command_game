@@ -20,7 +20,7 @@ const PlayerCard: React.FC<PlayerCardProps> = ({
   getRoleIcon,
   getRoleInfo,
 }) => {
-  const canSelect = !isCurrentPlayer && player.role !== null;
+  const canSelect = !isCurrentPlayer && !player.isLocked;
   const roleInfo = player.role ? getRoleInfo(player.role) : null;
   
   const cardBorderClass = isSelected
