@@ -50,7 +50,7 @@ const JoinGamePage: React.FC = () => {
 
       const availableGames: {[key: string]: number} = {};
       Object.entries(games).forEach(([id, game]: [string, any]) => {
-        if (game.gameState === 'lobby' && game.players && game.players.length < 6) {
+        if (game.state === 'lobby' && game.players && game.players.length < 6) {
           availableGames[id] = game.players.length;
         }
       });
@@ -78,11 +78,6 @@ const JoinGamePage: React.FC = () => {
 
     if (!gameData) {
       setGameIdError('Game not found');
-      return false;
-    }
-
-    if (gameData.gameState !== 'lobby') {
-      setGameIdError('Game has already started');
       return false;
     }
 
