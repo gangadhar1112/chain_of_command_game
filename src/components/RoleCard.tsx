@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crown, Heart, Scroll, Shield, Footprints, Lock } from 'lucide-react';
+import { Crown, Heart, Scroll, Shield, Siren, Footprints, Lock } from 'lucide-react';
 import { Role } from '../types/gameTypes';
 
 interface RoleCardProps {
@@ -47,8 +47,18 @@ const RoleCard: React.FC<RoleCardProps> = ({ role, isLocked }) => {
           color: 'text-green-400',
           bg: 'bg-green-900/30',
           border: 'border-green-700/50',
-          description: 'You must find the Chor to secure your position.',
+          description: 'You must find the Police to secure your position.',
           points: 25,
+        };
+      case 'police':
+        return {
+          name: 'Police',
+          icon: <Siren className="h-6 w-6 sm:h-8 sm:w-8" />,
+          color: 'text-indigo-400',
+          bg: 'bg-indigo-900/30',
+          border: 'border-indigo-700/50',
+          description: 'You must find the Chor to secure your position.',
+          points: 15,
         };
       case 'chor':
         return {
@@ -57,7 +67,7 @@ const RoleCard: React.FC<RoleCardProps> = ({ role, isLocked }) => {
           color: 'text-red-400',
           bg: 'bg-red-900/30',
           border: 'border-red-700/50',
-          description: 'Stay hidden from the Sipahi!',
+          description: 'Stay hidden from the Police!',
           points: 0,
         };
       default:
@@ -129,7 +139,8 @@ const roleChainPosition = (role: Role): string => {
     rani: '2nd',
     mantri: '3rd',
     sipahi: '4th',
-    chor: '5th',
+    police: '5th',
+    chor: '6th',
   };
   
   return positions[role] || 'Unknown';
