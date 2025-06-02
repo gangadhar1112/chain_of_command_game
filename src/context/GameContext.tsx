@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { ref, set, get, onValue, off, remove, update, onDisconnect } from 'firebase/database';
+import { ref, set, get, onValue, off, remove, update, onDisconnect, ServerValue } from 'firebase/database';
 import { database } from '../config/firebase';
 import { useAuth } from './AuthContext';
 import { Player, GameState, Role, RoleInfo } from '../types/gameTypes';
@@ -148,7 +148,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             lastSeen: Date.now(),
             userId: user.id,
             name: playerName,
-            timestamp: database.ServerValue.TIMESTAMP
+            timestamp: ServerValue.TIMESTAMP
           });
 
           onDisconnect(presenceRef).remove();
@@ -161,7 +161,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lastSeen: Date.now(),
           userId: user.id,
           name: playerName,
-          timestamp: database.ServerValue.TIMESTAMP
+          timestamp: ServerValue.TIMESTAMP
         });
       }, 15000);
 
