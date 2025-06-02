@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, ArrowLeft, Loader } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import ImageUpload from '../components/ImageUpload';
 
 const SignUpPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -14,8 +16,13 @@ const SignUpPage: React.FC = () => {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [profileImage, setProfileImage] = useState<File | null>(null);
   const { signUp } = useAuth();
   const navigate = useNavigate();
+
+  const handleImageSelect = (file: File) => {
+    setProfileImage(file);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +50,16 @@ const SignUpPage: React.FC = () => {
 
     try {
       setLoading(true);
-      await signUp(email.trim(), password, name.trim());
+      let photoURL = null;
+
+      if (profileImage) {
+        const storage = getStorage();
+        const storageRef = ref(storage, `profile_images/${Date.now()}_${profileImage.name}`);
+        await uploadBytes(storageRef, profileImage);
+        photoURL = await getDownloadURL(storageRef);
+      }
+
+      await signUp(email.trim(), password, name.trim(), photoURL);
       navigate('/');
     } catch (err) {
       console.error('Signup error:', err);
@@ -86,6 +102,13 @@ const SignUpPage: React.FC = () => {
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex justify-center mb-6">
+              <ImageUpload
+                onImageSelect={handleImageSelect}
+                currentImage={null}
+              />
+            </div>
+
             <Input
               label="Name"
               id="name"

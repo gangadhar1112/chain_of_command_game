@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, LogOut, UserX, X } from 'lucide-react';
+import { Settings, LogOut, UserX, X, User } from 'lucide-react';
 import Button from './Button';
 import { useAuth } from '../context/AuthContext';
+import ProfileSettings from './ProfileSettings';
 
 interface SettingsDrawerProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface SettingsDrawerProps {
 
 const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
   const { logout, deleteAccount } = useAuth();
+  const [showProfile, setShowProfile] = React.useState(false);
 
   const handleLogout = async () => {
     try {
@@ -65,25 +67,38 @@ const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ isOpen, onClose }) => {
                 </button>
               </div>
 
-              <div className="space-y-4">
-                <Button
-                  color="secondary"
-                  fullWidth
-                  onClick={handleLogout}
-                >
-                  <LogOut className="h-5 w-5 mr-2" />
-                  Sign Out
-                </Button>
+              {showProfile ? (
+                <ProfileSettings onClose={() => setShowProfile(false)} />
+              ) : (
+                <div className="space-y-4">
+                  <Button
+                    color="secondary"
+                    fullWidth
+                    onClick={() => setShowProfile(true)}
+                  >
+                    <User className="h-5 w-5 mr-2" />
+                    Edit Profile
+                  </Button>
 
-                <Button
-                  color="danger"
-                  fullWidth
-                  onClick={handleDeleteAccount}
-                >
-                  <UserX className="h-5 w-5 mr-2" />
-                  Delete Account
-                </Button>
-              </div>
+                  <Button
+                    color="secondary"
+                    fullWidth
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-5 w-5 mr-2" />
+                    Sign Out
+                  </Button>
+
+                  <Button
+                    color="danger"
+                    fullWidth
+                    onClick={handleDeleteAccount}
+                  >
+                    <UserX className="h-5 w-5 mr-2" />
+                    Delete Account
+                  </Button>
+                </div>
+              )}
             </div>
           </motion.div>
         </>
