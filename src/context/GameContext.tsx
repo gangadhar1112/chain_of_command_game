@@ -320,9 +320,51 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, setupPresence]);
 
-  const startGame = useCallback(() => {
-    // Implementation will be added later
-  }, []);
+  const startGame = useCallback(async () => {
+    if (!isHost || !gameId || !players.length) {
+      return;
+    }
+
+    if (players.length !== 6) {
+      toast.error('Need 6 players to start the game');
+      return;
+    }
+
+    try {
+      const availableRoles = [...roleChain];
+      const shuffledRoles = availableRoles.sort(() => Math.random() - 0.5);
+      
+      const updatedPlayers = players.map((player, index) => ({
+        ...player,
+        role: shuffledRoles[index],
+        isLocked: false,
+        isCurrentTurn: shuffledRoles[index] === 'king',
+      }));
+
+      const updates = {
+        [`games/${gameId}/players`]: updatedPlayers,
+        [`games/${gameId}/gameState`]: 'playing',
+        [`games/${gameId}/updatedAt`]: Date.now(),
+      };
+
+      await update(ref(database), updates);
+      
+      setPlayers(updatedPlayers);
+      setGameState('playing');
+
+      if (currentPlayer) {
+        const updatedCurrentPlayer = updatedPlayers.find(p => p.id === currentPlayer.id);
+        if (updatedCurrentPlayer) {
+          setCurrentPlayer(updatedCurrentPlayer);
+        }
+      }
+
+      toast.success('Game started!');
+    } catch (error) {
+      console.error('Error starting game:', error);
+      toast.error('Failed to start game. Please try again.');
+    }
+  }, [gameId, isHost, players, currentPlayer]);
 
   const makeGuess = useCallback((targetPlayerId: string) => {
     // Implementation will be added later
@@ -490,3 +532,5 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useGame = () => useContext(GameContext);
+
+export { GameProvider }
