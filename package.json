@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "canvas-confetti": "^1.9.2",
     "firebase": "^10.7.1",
     "framer-motion": "^10.18.0",
     "lucide-react": "latest",
@@ -19,6 +20,7 @@
     "react-router-dom": "^6.21.1"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.6.4",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
