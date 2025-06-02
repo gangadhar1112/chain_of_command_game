@@ -95,6 +95,29 @@ const getNextRoleInChain = (currentRole: Role): Role | null => {
   return currentIndex < roleOrder.length - 1 ? roleOrder[currentIndex + 1] as Role : null;
 };
 
+const isValidChainGuess = (players: Player[], currentPlayer: Player, targetPlayer: Player): boolean => {
+  const roleOrder = ['king', 'queen', 'minister', 'soldier', 'police', 'thief'];
+  
+  const lockedPlayers = players
+    .filter(p => p.isLocked)
+    .sort((a, b) => {
+      const roleA = roleOrder.indexOf(a.role as Role);
+      const roleB = roleOrder.indexOf(b.role as Role);
+      return roleA - roleB;
+    });
+
+  if (lockedPlayers.length === 0) {
+    return currentPlayer.role === 'king';
+  }
+
+  const lastLockedRole = lockedPlayers[lockedPlayers.length - 1].role as Role;
+  const lastLockedIndex = roleOrder.indexOf(lastLockedRole);
+  const currentRoleIndex = roleOrder.indexOf(currentPlayer.role as Role);
+  const targetRoleIndex = roleOrder.indexOf(targetPlayer.role as Role);
+
+  return currentRoleIndex === lastLockedIndex && targetRoleIndex === currentRoleIndex + 1;
+};
+
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -122,7 +145,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     onValue(gameRef, (snapshot) => {
       const game = snapshot.val();
       if (!game) {
-        // Game was deleted or doesn't exist
         setGameState('waiting');
         setPlayers([]);
         setCurrentRole(null);
@@ -135,13 +157,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setGameState(game.state);
       setPlayers(game.players || []);
       
-      // Update current player's role if game is in progress
       if (game.state === 'playing') {
         const playerRole = game.players.find((p: Player) => p.userId === user?.id)?.role;
         setCurrentRole(playerRole || null);
       }
 
-      // Handle game interruption
       if (game.state === 'interrupted') {
         setShowInterruptionModal(true);
         setInterruptionReason(game.interruptionReason || 'Game was interrupted');
@@ -149,7 +169,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setShowInterruptionModal(false);
       }
 
-      // Check if current player is still in the game
       const playerStillInGame = game.players.some((p: Player) => p.userId === user?.id);
       if (!playerStillInGame && game.state !== 'interrupted') {
         setGameState('waiting');
@@ -214,10 +233,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      // Check if user is already in the game
       const existingPlayer = gameData.players?.find((p: Player) => p.userId === user.id);
       if (existingPlayer) {
-        // Allow rejoin for existing players
         setGameId(gameId);
         setGameState(gameData.state);
         setPlayers(gameData.players || []);
@@ -227,7 +244,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
 
-      // Only allow new players to join if the game is in lobby state
       if (gameData.state !== 'lobby') {
         toast.error('Game has already started');
         return false;
@@ -281,7 +297,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Assign random roles
       const shuffledRoles = shuffleArray([...ROLES]);
       const playersWithRoles = game.players.map((player: Player, index: number) => ({
         ...player,
@@ -314,19 +329,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     const nextRole = getNextRoleInChain(currentPlayer.role as Role);
 
+    if (!isValidChainGuess(game.players, currentPlayer, targetPlayer)) {
+      toast.error('Invalid guess! You must follow the correct chain sequence.');
+      return;
+    }
+
     if (targetPlayer.role === nextRole) {
-      // Correct guess
       const updatedPlayers = game.players.map((p: Player) => {
         if (p.id === currentPlayer.id || p.id === targetPlayerId) {
-          return { ...p, isLocked: true };
+          return { ...p, isLocked: true, isCurrentTurn: p.id === targetPlayerId };
         }
-        return p;
-      });
-
-      // Set next turn
-      const nextPlayer = updatedPlayers.find((p: Player) => p.id === targetPlayerId);
-      updatedPlayers.forEach((p: Player) => {
-        p.isCurrentTurn = p.id === nextPlayer.id;
+        return { ...p, isCurrentTurn: false };
       });
 
       await update(gameRef, { players: updatedPlayers });
@@ -335,13 +348,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         message: `Correct! You found the ${getRoleInfo(nextRole as Role).name}!`
       });
 
-      // Check if game is complete
       const unlockedPlayers = updatedPlayers.filter((p: Player) => !p.isLocked && p.role !== 'thief');
       if (unlockedPlayers.length === 0) {
         await update(gameRef, { state: 'completed' });
       }
     } else {
-      // Incorrect guess
       const updatedPlayers = game.players.map((p: Player) => {
         if (p.id === currentPlayer.id) {
           return { ...p, role: targetPlayer.role, isCurrentTurn: false };
@@ -359,7 +370,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
-    // Clear guess result after 3 seconds
     setTimeout(() => setLastGuessResult(null), 3000);
   };
 
@@ -373,7 +383,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const game = snapshot.val();
 
       if (game.state === 'playing') {
-        // Set interruption state for other players
         await update(gameRef, {
           state: 'interrupted',
           interruptionReason: `${currentPlayer?.name} has left the game`
@@ -383,10 +392,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const remainingPlayers = game.players.filter((p: Player) => p.userId !== user.id);
       
       if (remainingPlayers.length === 0) {
-        // Delete the game if no players remain
         await remove(gameRef);
       } else {
-        // Update host if current player was host
         if (isHost) {
           const newHost = remainingPlayers[0];
           remainingPlayers[0] = { ...newHost, isHost: true };
@@ -397,7 +404,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // Clean up local state
       setGameId(null);
       setGameState('waiting');
       setPlayers([]);
@@ -405,7 +411,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setIsHost(false);
       setShowInterruptionModal(false);
       
-      // Unsubscribe from game updates
       off(gameRef);
       
       navigate('/');
