@@ -11,10 +11,10 @@ import Input from '../components/Input';
 import { generateId } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
-const PLAYER_TIMEOUT = 60000; // 1 minute
+const PLAYER_TIMEOUT = 15000; // 15 seconds
 const REFRESH_INTERVAL = 3000; // 3 seconds
-const MAX_RETRIES = 10;
-const RETRY_DELAY = 500;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
 const GAME_START_DELAY = 2000;
 
 const QuickPlayPage: React.FC = () => {
@@ -24,6 +24,7 @@ const QuickPlayPage: React.FC = () => {
   const [waitingPlayers, setWaitingPlayers] = useState(0);
   const [queueId, setQueueId] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
+  const [retryAttempts, setRetryAttempts] = useState(0);
   
   const { joinGame, createGame } = useGame();
   const { user, loading } = useAuth();
@@ -35,54 +36,72 @@ const QuickPlayPage: React.FC = () => {
     }
   }, [user, loading, navigate]);
 
-  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
   // Cleanup stale queues and players
   useEffect(() => {
-    if (!isJoining) return;
+    if (!isJoining || !queueId || !playerId) return;
 
     const cleanupInterval = setInterval(async () => {
-      const queuesRef = ref(database, 'quickPlay/queues');
-      const snapshot = await get(queuesRef);
-      const queues = snapshot.val() || {};
+      try {
+        const queueRef = ref(database, `quickPlay/queues/${queueId}`);
+        const snapshot = await get(queueRef);
+        const queue = snapshot.val();
 
-      const now = Date.now();
-      Object.entries(queues).forEach(async ([queueId, queue]: [string, any]) => {
-        // Remove stale players from queue
+        if (!queue) {
+          setIsJoining(false);
+          toast.error('Queue no longer exists');
+          navigate('/');
+          return;
+        }
+
+        const now = Date.now();
         const activePlayers = Object.entries(queue.players || {}).filter(
           ([, player]: [string, any]) => now - player.timestamp < PLAYER_TIMEOUT
         );
 
         if (activePlayers.length === 0) {
-          // Remove empty queue
-          await remove(ref(database, `quickPlay/queues/${queueId}`));
+          await remove(queueRef);
+          setIsJoining(false);
+          toast.error('All players disconnected');
+          navigate('/');
         } else {
-          // Update queue with only active players
-          await set(ref(database, `quickPlay/queues/${queueId}/players`), 
-            Object.fromEntries(activePlayers)
-          );
+          const updatedPlayers = Object.fromEntries(activePlayers);
+          await set(ref(database, `quickPlay/queues/${queueId}/players`), updatedPlayers);
+          setWaitingPlayers(activePlayers.length);
         }
-      });
+      } catch (error) {
+        console.error('Cleanup error:', error);
+      }
     }, REFRESH_INTERVAL);
 
     return () => clearInterval(cleanupInterval);
-  }, [isJoining]);
+  }, [isJoining, queueId, playerId, navigate]);
 
   // Keep player alive in queue
   useEffect(() => {
     if (!isJoining || !queueId || !playerId || !user) return;
 
     const keepAliveInterval = setInterval(async () => {
-      const playerRef = ref(database, `quickPlay/queues/${queueId}/players/${playerId}`);
-      await set(playerRef, {
-        name: playerName.trim(),
-        userId: user.id,
-        timestamp: Date.now()
-      });
+      try {
+        const playerRef = ref(database, `quickPlay/queues/${queueId}/players/${playerId}`);
+        await set(playerRef, {
+          name: playerName.trim(),
+          userId: user.id,
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        console.error('Keep alive error:', error);
+        if (retryAttempts < MAX_RETRIES) {
+          setRetryAttempts(prev => prev + 1);
+        } else {
+          setIsJoining(false);
+          toast.error('Connection lost. Please try again.');
+          navigate('/');
+        }
+      }
     }, REFRESH_INTERVAL / 2);
 
     return () => clearInterval(keepAliveInterval);
-  }, [isJoining, queueId, playerId, playerName, user]);
+  }, [isJoining, queueId, playerId, playerName, user, retryAttempts, navigate]);
 
   const findOrCreateQueue = async (): Promise<string> => {
     const queuesRef = ref(database, 'quickPlay/queues');
@@ -92,11 +111,13 @@ const QuickPlayPage: React.FC = () => {
     // Find an available queue
     const now = Date.now();
     for (const [id, queue] of Object.entries(queues)) {
-      const activePlayers = Object.values(queue.players || {}).filter(
+      if (!queue.players) continue;
+      
+      const activePlayers = Object.values(queue.players).filter(
         (player: any) => now - player.timestamp < PLAYER_TIMEOUT
       );
 
-      if (activePlayers.length < 6) {
+      if (activePlayers.length < 6 && queue.status !== 'starting') {
         return id;
       }
     }
@@ -105,29 +126,34 @@ const QuickPlayPage: React.FC = () => {
     const newQueueId = generateId(8);
     await set(ref(database, `quickPlay/queues/${newQueueId}`), {
       createdAt: now,
-      status: 'waiting'
+      status: 'waiting',
+      players: {}
     });
 
     return newQueueId;
   };
 
-  const handleGameCreation = async (queueId: string, players: any[]) => {
+  const handleGameCreation = async (queueId: string, players: any[]): Promise<boolean> => {
     try {
-      const newGameId = await createGame(playerName);
-      if (!newGameId) throw new Error('Failed to create game');
+      const gameId = await createGame(playerName);
+      if (!gameId) throw new Error('Failed to create game');
 
-      // Update queue status
       await set(ref(database, `quickPlay/queues/${queueId}`), {
         status: 'starting',
-        gameId: newGameId,
+        gameId,
         startedAt: Date.now()
       });
 
-      await sleep(GAME_START_DELAY);
-      navigate(`/game/${newGameId}`);
-      return true;
+      await new Promise(resolve => setTimeout(resolve, GAME_START_DELAY));
+      
+      const success = await joinGame(gameId, playerName);
+      if (success) {
+        navigate(`/game/${gameId}`);
+        return true;
+      }
+      throw new Error('Failed to join game');
     } catch (error) {
-      console.error('Error creating game:', error);
+      console.error('Game creation error:', error);
       return false;
     }
   };
@@ -138,40 +164,67 @@ const QuickPlayPage: React.FC = () => {
 
     const queueRef = ref(database, `quickPlay/queues/${queueId}`);
     let gameJoined = false;
+    let retryTimeout: NodeJS.Timeout;
 
     const unsubscribe = onValue(queueRef, async (snapshot) => {
       if (gameJoined) return;
 
-      const queue = snapshot.val();
-      if (!queue) {
-        setIsJoining(false);
-        return;
-      }
-
-      const players = Object.values(queue.players || {});
-      setWaitingPlayers(players.length);
-
-      if (queue.status === 'starting' && queue.gameId) {
-        gameJoined = true;
-        const joined = await joinGame(queue.gameId, playerName);
-        if (joined) {
-          navigate(`/game/${queue.gameId}`);
+      try {
+        const queue = snapshot.val();
+        if (!queue) {
+          setIsJoining(false);
+          toast.error('Queue no longer exists');
+          navigate('/');
+          return;
         }
-      } else if (players.length >= 6 && queue.status === 'waiting') {
-        const isFirstPlayer = players[0].userId === user.id;
-        if (isFirstPlayer) {
-          await handleGameCreation(queueId, players);
+
+        const players = Object.values(queue.players || {});
+        setWaitingPlayers(players.length);
+
+        if (queue.status === 'starting' && queue.gameId) {
+          gameJoined = true;
+          clearTimeout(retryTimeout);
+          
+          const joined = await joinGame(queue.gameId, playerName);
+          if (joined) {
+            navigate(`/game/${queue.gameId}`);
+          } else if (retryAttempts < MAX_RETRIES) {
+            setRetryAttempts(prev => prev + 1);
+            retryTimeout = setTimeout(() => {
+              gameJoined = false;
+            }, RETRY_DELAY);
+          } else {
+            setIsJoining(false);
+            toast.error('Failed to join game. Please try again.');
+            navigate('/');
+          }
+        } else if (players.length >= 6 && queue.status === 'waiting') {
+          const isFirstPlayer = players[0].userId === user.id;
+          if (isFirstPlayer) {
+            await handleGameCreation(queueId, players);
+          }
+        }
+      } catch (error) {
+        console.error('Queue processing error:', error);
+        if (retryAttempts < MAX_RETRIES) {
+          setRetryAttempts(prev => prev + 1);
+        } else {
+          setIsJoining(false);
+          toast.error('Connection error. Please try again.');
+          navigate('/');
         }
       }
     });
 
     return () => {
       unsubscribe();
+      clearTimeout(retryTimeout);
       if (playerId) {
-        remove(ref(database, `quickPlay/queues/${queueId}/players/${playerId}`));
+        remove(ref(database, `quickPlay/queues/${queueId}/players/${playerId}`))
+          .catch(console.error);
       }
     };
-  }, [isJoining, queueId, user, playerId, playerName, joinGame, navigate]);
+  }, [isJoining, queueId, user, playerId, playerName, joinGame, navigate, retryAttempts]);
 
   const handleQuickPlay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,6 +242,7 @@ const QuickPlayPage: React.FC = () => {
 
     try {
       setIsJoining(true);
+      setRetryAttempts(0);
       const queueId = await findOrCreateQueue();
       const playerId = generateId(8);
       
