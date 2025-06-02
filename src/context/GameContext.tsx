@@ -176,6 +176,64 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  const createGame = useCallback(async (playerName: string): Promise<string> => {
+    if (!user) {
+      toast.error('Must be logged in to create a game');
+      return '';
+    }
+
+    try {
+      const newGameId = generateId(6);
+      const playerId = generateId(8);
+      
+      const newPlayer: Player = {
+        id: playerId,
+        name: playerName.trim(),
+        role: null,
+        isHost: true,
+        isLocked: false,
+        isCurrentTurn: false,
+        userId: user.id,
+      };
+
+      const gameData = {
+        id: newGameId,
+        gameState: 'lobby' as GameState,
+        players: [newPlayer],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        hostId: playerId,
+      };
+
+      const updates: { [key: string]: any } = {
+        [`games/${newGameId}`]: gameData,
+        [`userGames/${user.id}/${newGameId}`]: {
+          createdAt: Date.now(),
+          lastActive: Date.now(),
+        }
+      };
+
+      await update(ref(database), updates);
+      
+      await setupPresence(newGameId, playerId, playerName);
+      
+      localStorage.setItem('currentGameId', newGameId);
+      localStorage.setItem('currentPlayerId', playerId);
+      setGameId(newGameId);
+      setPlayers([newPlayer]);
+      setCurrentPlayer(newPlayer);
+      setIsHost(true);
+      setGameState('lobby');
+
+      toast.success('Game created successfully!');
+      return newGameId;
+    } catch (error) {
+      console.error('Error creating game:', error);
+      toast.error('Failed to create game. Please try again.');
+      return '';
+    }
+  }, [user, setupPresence]);
+
   const joinGame = useCallback(async (gameId: string, playerName: string): Promise<boolean> => {
     if (!user) {
       toast.error('Must be logged in to join a game');
@@ -262,6 +320,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   }, [user, setupPresence]);
+
+  const startGame = useCallback(() => {
+    // Implementation will be added later
+  }, []);
+
+  const makeGuess = useCallback((targetPlayerId: string) => {
+    // Implementation will be added later
+  }, []);
+
+  const leaveGame = useCallback(() => {
+    // Implementation will be added later
+  }, []);
+
+  const getRoleInfo = useCallback((role: Role): RoleInfo => {
+    return roleInfoMap[role] || defaultContext.getRoleInfo();
+  }, []);
+
+  const getNextRoleInChain = useCallback((role: Role): Role | null => {
+    const currentIndex = roleChain.indexOf(role);
+    if (currentIndex === -1 || currentIndex === roleChain.length - 1) {
+      return null;
+    }
+    return roleChain[currentIndex + 1];
+  }, []);
+
+  const clearGuessResult = useCallback(() => {
+    setLastGuessResult(null);
+  }, []);
 
   return (
     <GameContext.Provider value={{
