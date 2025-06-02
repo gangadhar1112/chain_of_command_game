@@ -29,9 +29,8 @@ interface GameContextType {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const ROLES: Role[] = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
-
 const HEARTBEAT_INTERVAL = 5000; // 5 seconds
-const PLAYER_TIMEOUT = 15000; // 15 seconds
+const PLAYER_TIMEOUT = 180000; // 3 minutes
 
 const getRoleInfo = (role: Role): RoleInfo => {
   switch (role) {
@@ -92,35 +91,6 @@ const getRoleInfo = (role: Role): RoleInfo => {
   }
 };
 
-const getNextRoleInChain = (currentRole: Role): Role | null => {
-  const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
-  const currentIndex = roleOrder.indexOf(currentRole);
-  return currentIndex < roleOrder.length - 1 ? roleOrder[currentIndex + 1] as Role : null;
-};
-
-const isValidChainGuess = (players: Player[], currentPlayer: Player): boolean => {
-  if (!currentPlayer.isCurrentTurn) return false;
-  
-  const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
-  
-  const lockedPlayers = players
-    .filter(p => p.isLocked)
-    .sort((a, b) => {
-      const roleA = roleOrder.indexOf(a.role as Role);
-      const roleB = roleOrder.indexOf(b.role as Role);
-      return roleA - roleB;
-    });
-
-  if (lockedPlayers.length === 0) {
-    return currentPlayer.role === 'raja';
-  }
-
-  const lastLockedRole = lockedPlayers[lockedPlayers.length - 1].role as Role;
-  const lastLockedIndex = roleOrder.indexOf(lastLockedRole);
-  
-  return currentPlayer.role === roleOrder[lastLockedIndex + 1];
-};
-
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -135,6 +105,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const currentPlayer = players.find(p => p.userId === user?.id) || null;
 
+  // Heartbeat system
   useEffect(() => {
     if (!gameId || !user?.id || gameState === 'waiting') return;
 
@@ -142,7 +113,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const heartbeatInterval = setInterval(() => {
       set(heartbeatRef, {
         timestamp: Date.now(),
-        playerId: currentPlayer?.id
+        playerId: currentPlayer?.id,
+        name: currentPlayer?.name
       });
     }, HEARTBEAT_INTERVAL);
 
@@ -152,6 +124,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     };
   }, [gameId, user?.id, gameState, currentPlayer]);
 
+  // Monitor player connections
   useEffect(() => {
     if (!gameId || !isHost || gameState !== 'playing') return;
 
@@ -168,31 +141,38 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       if (disconnectedPlayers.length > 0) {
         const gameRef = ref(database, `games/${gameId}`);
-        await update(gameRef, {
-          state: 'interrupted',
-          interruptionReason: `${disconnectedPlayers.map(p => p.name).join(', ')} disconnected from the game`
-        });
+        const remainingPlayers = players.filter(p => !disconnectedPlayers.some(dp => dp.id === p.id));
+
+        if (remainingPlayers.length < 2) {
+          await update(gameRef, {
+            state: 'interrupted',
+            interruptionReason: 'Not enough players to continue'
+          });
+        } else {
+          // Update the game with remaining players
+          await update(gameRef, {
+            players: remainingPlayers
+          });
+
+          // Notify about disconnections
+          toast.error(`${disconnectedPlayers.map(p => p.name).join(', ')} disconnected`);
+        }
       }
     }, HEARTBEAT_INTERVAL);
 
     return () => clearInterval(checkDisconnections);
   }, [gameId, isHost, gameState, players]);
 
+  // Game state listener
   useEffect(() => {
-    return () => {
-      if (gameId) {
-        const gameRef = ref(database, `games/${gameId}`);
-        off(gameRef);
-      }
-    };
-  }, [gameId]);
+    if (!gameId) return;
 
-  const setupGameListeners = (gameRef: any) => {
-    onValue(gameRef, async (snapshot) => {
+    const gameRef = ref(database, `games/${gameId}`);
+    const unsubscribe = onValue(gameRef, async (snapshot) => {
       const game = snapshot.val();
       
       if (!game) {
-        if (window.location.pathname !== '/') {
+        if (gameState !== 'waiting') {
           setGameState('waiting');
           setPlayers([]);
           setCurrentRole(null);
@@ -201,15 +181,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           setInterruptionReason('Game session has ended');
           navigate('/');
         }
-        return;
-      }
-
-      const hostPlayer = game.players?.find((p: Player) => p.isHost);
-      if (!hostPlayer && game.state !== 'completed') {
-        await update(gameRef, {
-          state: 'interrupted',
-          interruptionReason: 'Host has disconnected'
-        });
         return;
       }
 
@@ -227,20 +198,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       if (game.state === 'interrupted') {
         setShowInterruptionModal(true);
         setInterruptionReason(game.interruptionReason || 'Game was interrupted');
-      } else {
-        setShowInterruptionModal(false);
-      }
-
-      const playerStillInGame = game.players?.some((p: Player) => p.userId === user?.id);
-      if (!playerStillInGame && game.state !== 'completed' && game.state !== 'interrupted') {
-        setGameState('waiting');
-        setPlayers([]);
-        setCurrentRole(null);
-        setIsHost(false);
-        navigate('/');
       }
     });
-  };
+
+    return () => {
+      off(gameRef);
+    };
+  }, [gameId, user?.id, navigate, gameState]);
 
   const createGame = async (playerName: string): Promise<string> => {
     if (!user) throw new Error('Must be signed in to create a game');
@@ -264,15 +228,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         state: 'lobby',
         players: [initialPlayer],
         createdAt: Date.now(),
-        hostId: user.id
+        hostId: user.id,
+        heartbeats: {
+          [user.id]: {
+            timestamp: Date.now(),
+            playerId: initialPlayer.id,
+            name: playerName
+          }
+        }
       });
 
       setGameId(newGameId);
       setGameState('lobby');
       setPlayers([initialPlayer]);
       setIsHost(true);
-
-      setupGameListeners(gameRef);
 
       return newGameId;
     } catch (error) {
@@ -302,24 +271,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
       const currentPlayers = gameData.players || [];
       
-      const existingPlayer = currentPlayers.find((p: Player) => p.userId === user.id);
-      if (existingPlayer) {
-        const updatedPlayers = currentPlayers.map((p: Player) => 
-          p.userId === user.id ? { ...p, name: playerName } : p
-        );
-        
-        await update(gameRef, { players: updatedPlayers });
-        
-        setGameId(gameId);
-        setGameState(gameData.state);
-        setPlayers(updatedPlayers);
-        setIsHost(existingPlayer.isHost);
-        setCurrentRole(existingPlayer.role);
-        
-        setupGameListeners(gameRef);
-        return true;
-      }
-
       if (currentPlayers.length >= 6) {
         toast.error('Game is full');
         return false;
@@ -339,7 +290,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       
       await update(gameRef, {
         players: updatedPlayers,
-        lastUpdated: Date.now()
+        [`heartbeats/${user.id}`]: {
+          timestamp: Date.now(),
+          playerId: newPlayer.id,
+          name: playerName
+        }
       });
 
       setGameId(gameId);
@@ -347,7 +302,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setPlayers(updatedPlayers);
       setIsHost(false);
 
-      setupGameListeners(gameRef);
       return true;
     } catch (error) {
       console.error('Error joining game:', error);
@@ -388,77 +342,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       console.error('Error starting game:', error);
       toast.error('Failed to start game');
     }
-  };
-
-  const makeGuess = async (targetPlayerId: string) => {
-    if (!gameId || !currentPlayer) return;
-
-    const gameRef = ref(database, `games/${gameId}`);
-    const snapshot = await get(gameRef);
-    const game = snapshot.val();
-
-    const targetPlayer = game.players.find((p: Player) => p.id === targetPlayerId);
-    if (!targetPlayer || targetPlayer.isLocked) return;
-
-    if (!isValidChainGuess(game.players, currentPlayer)) {
-      toast.error("It's not your turn! Wait for the previous player in the chain.");
-      return;
-    }
-
-    const nextRole = getNextRoleInChain(currentPlayer.role as Role);
-    
-    if (targetPlayer.role === nextRole) {
-      const updatedPlayers = game.players.map((p: Player) => {
-        if (p.id === currentPlayer.id) {
-          return { 
-            ...p, 
-            isLocked: true,
-            isCurrentTurn: false 
-          };
-        }
-        if (p.id === targetPlayer.id) {
-          return { ...p, isCurrentTurn: true };
-        }
-        return { ...p, isCurrentTurn: false };
-      });
-
-      await update(gameRef, { players: updatedPlayers });
-      setLastGuessResult({
-        correct: true,
-        message: `Correct! You found the ${getRoleInfo(nextRole as Role).name}!`
-      });
-
-      const unlockedPlayers = updatedPlayers.filter(p => !p.isLocked && p.role !== 'chor');
-      if (unlockedPlayers.length === 0) {
-        await update(gameRef, { state: 'completed' });
-      }
-    } else {
-      const updatedPlayers = game.players.map((p: Player) => {
-        if (p.id === currentPlayer.id) {
-          return { 
-            ...p, 
-            role: targetPlayer.role,
-            isCurrentTurn: false
-          };
-        }
-        if (p.id === targetPlayer.id) {
-          return { 
-            ...p, 
-            role: currentPlayer.role,
-            isCurrentTurn: true
-          };
-        }
-        return { ...p, isCurrentTurn: false };
-      });
-
-      await update(gameRef, { players: updatedPlayers });
-      setLastGuessResult({
-        correct: false,
-        message: 'Wrong guess! Roles have been swapped.'
-      });
-    }
-
-    setTimeout(() => setLastGuessResult(null), 3000);
   };
 
   const leaveGame = async () => {
@@ -504,13 +387,65 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setIsHost(false);
       setShowInterruptionModal(false);
       
-      off(gameRef);
-      
       navigate('/');
     } catch (error) {
       console.error('Error leaving game:', error);
       toast.error('Failed to leave game');
     }
+  };
+
+  const makeGuess = async (targetPlayerId: string) => {
+    if (!gameId || !currentPlayer) return;
+
+    const gameRef = ref(database, `games/${gameId}`);
+    const snapshot = await get(gameRef);
+    const game = snapshot.val();
+
+    const targetPlayer = game.players.find((p: Player) => p.id === targetPlayerId);
+    if (!targetPlayer || targetPlayer.isLocked) return;
+
+    const nextRole = getNextRoleInChain(currentPlayer.role as Role);
+    
+    if (targetPlayer.role === nextRole) {
+      const updatedPlayers = game.players.map((p: Player) => {
+        if (p.id === currentPlayer.id) {
+          return { ...p, isLocked: true, isCurrentTurn: false };
+        }
+        if (p.id === targetPlayer.id) {
+          return { ...p, isCurrentTurn: true };
+        }
+        return { ...p, isCurrentTurn: false };
+      });
+
+      await update(gameRef, { players: updatedPlayers });
+      setLastGuessResult({
+        correct: true,
+        message: `Correct! You found the ${getRoleInfo(nextRole as Role).name}!`
+      });
+
+      const unlockedPlayers = updatedPlayers.filter(p => !p.isLocked && p.role !== 'chor');
+      if (unlockedPlayers.length === 0) {
+        await update(gameRef, { state: 'completed' });
+      }
+    } else {
+      const updatedPlayers = game.players.map((p: Player) => {
+        if (p.id === currentPlayer.id) {
+          return { ...p, role: targetPlayer.role, isCurrentTurn: false };
+        }
+        if (p.id === targetPlayer.id) {
+          return { ...p, role: currentPlayer.role, isCurrentTurn: true };
+        }
+        return { ...p, isCurrentTurn: false };
+      });
+
+      await update(gameRef, { players: updatedPlayers });
+      setLastGuessResult({
+        correct: false,
+        message: 'Wrong guess! Roles have been swapped.'
+      });
+    }
+
+    setTimeout(() => setLastGuessResult(null), 3000);
   };
 
   const endGame = async () => {
@@ -533,6 +468,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const updateGameState = (newState: Partial<GameState>) => {
     setGameState(prev => ({ ...prev, ...newState } as GameState));
+  };
+
+  const getNextRoleInChain = (currentRole: Role): Role | null => {
+    const roleOrder = ['raja', 'rani', 'mantri', 'sipahi', 'police', 'chor'];
+    const currentIndex = roleOrder.indexOf(currentRole);
+    return currentIndex < roleOrder.length - 1 ? roleOrder[currentIndex + 1] as Role : null;
   };
 
   return (

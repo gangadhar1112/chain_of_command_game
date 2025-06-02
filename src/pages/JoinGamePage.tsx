@@ -18,9 +18,6 @@ const JoinGamePage: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [isAutoMatching, setIsAutoMatching] = useState(false);
   const [activeGames, setActiveGames] = useState<{[key: string]: number}>({});
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
-  const retryDelay = 1000; // 1 second
   
   const { joinGame } = useGame();
   const { user, loading } = useAuth();
@@ -81,7 +78,13 @@ const JoinGamePage: React.FC = () => {
       return false;
     }
 
+    if (gameData.state !== 'lobby') {
+      setGameIdError('Game has already started');
+      return false;
+    }
+
     const currentPlayers = gameData.players || [];
+    
     if (currentPlayers.length >= 6) {
       setGameIdError('Game is full');
       return false;
@@ -97,14 +100,30 @@ const JoinGamePage: React.FC = () => {
     return true;
   };
 
-  const handleJoinGame = async (targetGameId: string, retry = false) => {
+  const handleJoinGame = async (targetGameId: string) => {
+    if (!user) {
+      setNameError('You must be signed in to join a game');
+      navigate('/signin', { state: { from: location.pathname } });
+      return;
+    }
+
     try {
       setIsJoining(true);
+      setGameIdError('');
+      setNameError('');
       
       const isValid = await validateGame(targetGameId);
-      if (!isValid) {
-        return;
-      }
+      if (!isValid) return;
+
+      // Set up heartbeat before joining
+      const heartbeatRef = ref(database, `games/${targetGameId}/heartbeats/${user.id}`);
+      const heartbeatInterval = setInterval(() => {
+        const timestamp = Date.now();
+        ref(database, `games/${targetGameId}/heartbeats/${user.id}`).set({
+          timestamp,
+          name: playerName
+        });
+      }, 5000); // Send heartbeat every 5 seconds
 
       const success = await joinGame(targetGameId, playerName.trim());
       
@@ -112,27 +131,16 @@ const JoinGamePage: React.FC = () => {
         navigate(`/game/${targetGameId}`);
         toast.success('Successfully joined the game!');
       } else {
-        // If join failed and we haven't exceeded max retries, try again
-        if (!retry && retryCount < maxRetries) {
-          setRetryCount(prev => prev + 1);
-          setTimeout(() => {
-            handleJoinGame(targetGameId, true);
-          }, retryDelay);
-          return;
-        }
-        
+        clearInterval(heartbeatInterval);
         setGameIdError('Unable to join game. Please try again.');
-        toast.error('Failed to join game. Please try again.');
+        toast.error('Failed to join game');
       }
     } catch (error) {
       console.error('Error joining game:', error);
       setGameIdError('Error joining game. Please try again.');
-      toast.error('Error joining game. Please try again.');
+      toast.error('Error joining game');
     } finally {
-      if (!retry) {
-        setIsJoining(false);
-        setRetryCount(0);
-      }
+      setIsJoining(false);
     }
   };
 
