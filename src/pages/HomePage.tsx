@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Crown, Users, Trophy, Star, ChevronRight, Heart, Building2, Shield, Siren, Footprints, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Crown, Users, Trophy, Star, ChevronRight, Heart, Building2, Shield, Footprints, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 import Header from '../components/Header';
 import Button from '../components/Button';
 
@@ -9,9 +9,10 @@ const HomePage: React.FC = () => {
   const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   const chainRoles = [
-    { name: 'Raja', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-900/30', points: 10 },
-    { name: 'Mantri', icon: Heart, color: 'text-pink-400', bg: 'bg-pink-900/30', points: 9 },
-    { name: 'Sipahi', icon: Shield, color: 'text-green-400', bg: 'bg-green-900/30', points: 6 },
+    { name: 'Raja', icon: Crown, color: 'text-yellow-400', bg: 'bg-yellow-900/30', points: 100 },
+    { name: 'Rani', icon: Heart, color: 'text-pink-400', bg: 'bg-pink-900/30', points: 80 },
+    { name: 'Mantri', icon: Building2, color: 'text-blue-400', bg: 'bg-blue-900/30', points: 50 },
+    { name: 'Sipahi', icon: Shield, color: 'text-green-400', bg: 'bg-green-900/30', points: 25 },
     { name: 'Chor', icon: Footprints, color: 'text-red-400', bg: 'bg-red-900/30', points: 0 }
   ];
 
@@ -36,10 +37,10 @@ const HomePage: React.FC = () => {
             <div className="bg-purple-900/70 rounded-lg p-5 border border-purple-700/50 shadow-md transition hover:bg-purple-900/90">
               <div className="flex items-center mb-3">
                 <Users className="text-purple-300 h-6 w-6 mr-2" />
-                <h3 className="text-xl font-semibold text-white">4 Players</h3>
+                <h3 className="text-xl font-semibold text-white">5 Players</h3>
               </div>
               <p className="text-purple-200">
-                Gather four players to start the game. Each player is assigned a secret role: Raja, Mantri, Sipahi, or Chor.
+                Gather five players to start the game. Each player is assigned a secret role: Raja, Rani, Mantri, Sipahi, or Chor.
               </p>
             </div>
             
@@ -49,7 +50,7 @@ const HomePage: React.FC = () => {
                 <h3 className="text-xl font-semibold text-white">Score Points</h3>
               </div>
               <p className="text-purple-200">
-                Higher positions earn more points. The Raja earns 10 points, while the Chor earns none.
+                Higher positions earn more points. The Raja earns 100 points, while the Chor earns none.
               </p>
             </div>
           </div>
@@ -59,7 +60,7 @@ const HomePage: React.FC = () => {
             <h2 className="text-2xl font-bold text-white mb-6 text-center">The Roles</h2>
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-purple-900/20 via-indigo-900/20 to-purple-900/20 rounded-lg" />
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 relative">
                 {chainRoles.map((role, index) => (
                   <div key={role.name} className="relative">
                     <div className={`${role.bg} rounded-lg p-4 border border-purple-700/50 text-center relative z-10`}>
@@ -102,7 +103,7 @@ const HomePage: React.FC = () => {
                 <ol className="space-y-3 text-purple-100">
                   <li className="flex">
                     <span className="font-bold text-yellow-400 mr-2">1.</span>
-                    <span>Each player receives a secret role: Raja (King), Mantri (Minister), Sipahi (Police), or Chor (Thief).</span>
+                    <span>Each player receives a secret role: Raja (King), Rani (Queen), Mantri (Minister), Sipahi (Guard), or Chor (Thief).</span>
                   </li>
                   <li className="flex">
                     <span className="font-bold text-yellow-400 mr-2">2.</span>

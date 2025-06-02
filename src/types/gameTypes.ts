@@ -1,8 +1,8 @@
 // Game roles
-export type Role = 'king' | 'queen' | 'minister' | 'soldier' | 'police' | 'thief';
+export type Role = 'raja' | 'rani' | 'mantri' | 'sipahi' | 'chor';
 
 // Game states
-export type GameState = 'waiting' | 'lobby' | 'playing' | 'completed';
+export type GameState = 'waiting' | 'lobby' | 'playing' | 'completed' | 'interrupted';
 
 // Role information
 export interface RoleInfo {
@@ -12,7 +12,7 @@ export interface RoleInfo {
   description: string;
   points: number;
   chainOrder: number;
-  customName?: string; // Added for custom role names
+  customName?: string;
 }
 
 // Player interface
@@ -33,5 +33,5 @@ export interface Game {
   state: GameState;
   currentTurnPlayerId: string | null;
   createdAt: number;
-  customRoleNames?: { [key in Role]?: string }; // Added for custom role names
+  customRoleNames?: { [key in Role]?: string };
 }
