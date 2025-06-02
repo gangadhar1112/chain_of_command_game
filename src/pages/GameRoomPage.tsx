@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { Heart, Crown, Building2, Shield, Siren, Footprints, Users, Clock, Award, HelpCircle, XCircle, Lock, CheckCircle2, XCircle2 } from 'lucide-react';
+import { Heart, Crown, Building2, Shield, Siren, Footprints, Users, Clock, Award, HelpCircle, XCircle, Lock, CheckCircle2, XCircle as XCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import Header from '../components/Header';
 import Button from '../components/Button';
