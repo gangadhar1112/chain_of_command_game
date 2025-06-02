@@ -7,6 +7,7 @@ import Button from '../components/Button';
 import PlayerCard from '../components/PlayerCard';
 import RoleCard from '../components/RoleCard';
 import GameResults from '../components/GameResults';
+import GameInterruptionModal from '../components/GameInterruptionModal';
 
 const GameRoomPage: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>();
@@ -21,7 +22,9 @@ const GameRoomPage: React.FC = () => {
     leaveGame,
     makeGuess,
     getRoleInfo,
-    joinGame
+    joinGame,
+    showInterruptionModal,
+    interruptionReason
   } = useGame();
   
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -377,6 +380,11 @@ const GameRoomPage: React.FC = () => {
           <GameResults players={players} getRoleInfo={getRoleInfo} onLeaveGame={handleLeaveGame} />
         )}
       </main>
+
+      <GameInterruptionModal
+        show={showInterruptionModal}
+        reason={interruptionReason}
+      />
     </div>
   );
 };
