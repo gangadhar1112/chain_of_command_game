@@ -348,6 +348,122 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLastGuessResult(null);
   }, []);
 
+  useEffect(() => {
+    if (!gameId || !currentPlayer || !user) return;
+
+    const presenceRef = ref(database, `presence/${gameId}`);
+    const gameRef = ref(database, `games/${gameId}`);
+    let cleanup = false;
+
+    const monitorPresence = async () => {
+      try {
+        // Set up presence monitoring
+        const playerPresenceRef = ref(database, `presence/${gameId}/${currentPlayer.id}`);
+        await set(playerPresenceRef, {
+          online: true,
+          lastSeen: serverTimestamp(),
+          userId: user.id,
+          name: currentPlayer.name
+        });
+
+        // Set up disconnect cleanup
+        onDisconnect(playerPresenceRef).remove();
+
+        // Monitor other players' presence
+        onValue(presenceRef, async (snapshot) => {
+          if (cleanup) return;
+
+          const presence = snapshot.val() || {};
+          const currentPlayers = [...players];
+          let playersDisconnected = false;
+          const disconnectedNames: string[] = [];
+
+          // Check for disconnected players
+          currentPlayers.forEach(player => {
+            if (!presence[player.id] && player.id !== currentPlayer.id) {
+              playersDisconnected = true;
+              disconnectedNames.push(player.name);
+            }
+          });
+
+          if (playersDisconnected && gameState === 'playing') {
+            handleGameInterruption(`Players disconnected: ${disconnectedNames.join(', ')}`);
+            
+            // If host, clean up the game
+            if (isHost) {
+              await remove(gameRef);
+            }
+          }
+        });
+
+        // Keep presence alive
+        const intervalId = setInterval(async () => {
+          if (!cleanup) {
+            await set(playerPresenceRef, {
+              online: true,
+              lastSeen: serverTimestamp(),
+              userId: user.id,
+              name: currentPlayer.name
+            });
+          }
+        }, 15000);
+
+        return () => {
+          cleanup = true;
+          clearInterval(intervalId);
+          remove(playerPresenceRef);
+        };
+      } catch (error) {
+        console.error('Error in presence monitoring:', error);
+      }
+    };
+
+    monitorPresence();
+
+    return () => {
+      cleanup = true;
+    };
+  }, [gameId, currentPlayer, user, players, gameState, isHost, handleGameInterruption]);
+
+  useEffect(() => {
+    if (!gameId) return;
+
+    const gameRef = ref(database, `games/${gameId}`);
+    let cleanup = false;
+
+    const unsubscribe = onValue(gameRef, (snapshot) => {
+      if (cleanup) return;
+
+      const gameData = snapshot.val();
+      
+      if (!gameData) {
+        handleGameInterruption('Game no longer exists');
+        return;
+      }
+
+      // Update game state
+      setGameState(gameData.gameState);
+      setPlayers(gameData.players || []);
+
+      // Update current player
+      if (currentPlayer) {
+        const updatedCurrentPlayer = gameData.players?.find(
+          (p: Player) => p.id === currentPlayer.id
+        );
+        if (updatedCurrentPlayer) {
+          setCurrentPlayer(updatedCurrentPlayer);
+        }
+      }
+    }, {
+      onlyOnce: false
+    });
+
+    return () => {
+      cleanup = true;
+      off(gameRef);
+    };
+  }, [gameId, currentPlayer, handleGameInterruption]);
+
   return (
     <GameContext.Provider value={{
       gameState,
