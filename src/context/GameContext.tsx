@@ -119,6 +119,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastGuessResult, setLastGuessResult] = useState<{ correct: boolean; message: string } | null>(null);
   const [showInterruptionModal, setShowInterruptionModal] = useState(false);
   const [interruptionReason, setInterruptionReason] = useState<string>('');
+  const [disconnectedPlayers, setDisconnectedPlayers] = useState<string[]>([]);
   const { user } = useAuth();
 
   const memoizedRoleInfo = useMemo(() => roleInfoMap, []);
@@ -470,12 +471,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updatedPlayers = players.filter(p => p.id !== disconnectedPlayer.id);
     
     if (updatedPlayers.length < 3) {
-      handleGameInterruption('Not enough players to continue');
+      handleGameInterruption(`Game ended: ${disconnectedPlayer.name} disconnected and there are not enough players to continue`, [disconnectedPlayer.name]);
       return;
     }
 
     if (disconnectedPlayer.isHost && updatedPlayers.length > 0) {
       updatedPlayers[0].isHost = true;
+    }
+
+    if (disconnectedPlayer.isCurrentTurn) {
+      const nextPlayerIndex = updatedPlayers.findIndex(p => !p.isLocked);
+      if (nextPlayerIndex !== -1) {
+        updatedPlayers[nextPlayerIndex].isCurrentTurn = true;
+      }
     }
 
     const updates: { [key: string]: any } = {
@@ -489,10 +497,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error handling player disconnection:', error);
     }
-  }, [gameId, gameState, players]);
+  }, [gameId, gameState, players, handleGameInterruption]);
 
-  const handleGameInterruption = useCallback((reason: string) => {
+  const handleGameInterruption = useCallback((reason: string, disconnectedPlayers?: string[]) => {
     setInterruptionReason(reason);
+    setDisconnectedPlayers(disconnectedPlayers || []);
     setShowInterruptionModal(true);
     
     localStorage.removeItem('currentGameId');
