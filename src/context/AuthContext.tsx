@@ -9,15 +9,18 @@ import {
   browserLocalPersistence,
   sendPasswordResetEmail,
   deleteUser,
-  updateProfile
+  updateProfile,
+  updateEmail,
+  updatePassword
 } from 'firebase/auth';
-import { ref, remove, set } from 'firebase/database';
+import { ref, remove, set, get } from 'firebase/database';
 import { auth, database } from '../config/firebase';
 
 interface User {
   id: string;
   email: string | null;
   name: string | null;
+  photoURL: string | null;
 }
 
 interface AuthContextType {
@@ -28,6 +31,9 @@ interface AuthContextType {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
+  updateUserProfile: (data: { name?: string; photoURL?: string }) => Promise<void>;
+  updateUserEmail: (email: string) => Promise<void>;
+  updateUserPassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -38,6 +44,9 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   resetPassword: async () => {},
   deleteAccount: async () => {},
+  updateUserProfile: async () => {},
+  updateUserEmail: async () => {},
+  updateUserPassword: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -49,12 +58,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
+        // Get additional user data from database
+        const userRef = ref(database, `users/${firebaseUser.uid}`);
+        const snapshot = await get(userRef);
+        const userData = snapshot.val();
+
         setUser({
           id: firebaseUser.uid,
           email: firebaseUser.email,
-          name: firebaseUser.displayName
+          name: userData?.name || firebaseUser.displayName,
+          photoURL: userData?.photoURL || firebaseUser.photoURL,
         });
       } else {
         setUser(null);
@@ -65,23 +80,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
+  const updateUserProfile = async (data: { name?: string; photoURL?: string }) => {
+    if (!auth.currentUser) return;
+
+    try {
+      await updateProfile(auth.currentUser, {
+        displayName: data.name,
+        photoURL: data.photoURL,
+      });
+
+      const userRef = ref(database, `users/${auth.currentUser.uid}`);
+      await set(userRef, {
+        ...data,
+        email: auth.currentUser.email,
+        updatedAt: Date.now(),
+      });
+
+      setUser(prev => prev ? {
+        ...prev,
+        name: data.name || prev.name,
+        photoURL: data.photoURL || prev.photoURL,
+      } : null);
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
+  };
+
+  const updateUserEmail = async (email: string) => {
+    if (!auth.currentUser) return;
+
+    try {
+      await updateEmail(auth.currentUser, email);
+      
+      const userRef = ref(database, `users/${auth.currentUser.uid}`);
+      await set(userRef, {
+        email,
+        updatedAt: Date.now(),
+      });
+
+      setUser(prev => prev ? { ...prev, email } : null);
+    } catch (error) {
+      console.error('Update email error:', error);
+      throw error;
+    }
+  };
+
+  const updateUserPassword = async (password: string) => {
+    if (!auth.currentUser) return;
+
+    try {
+      await updatePassword(auth.currentUser, password);
+    } catch (error) {
+      console.error('Update password error:', error);
+      throw error;
+    }
+  };
+
   const signUp = async (email: string, password: string, name: string) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName: name });
       
-      // Save user data to database
       const userRef = ref(database, `users/${result.user.uid}`);
       await set(userRef, {
         email: result.user.email,
         name: name,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       });
 
       setUser({
         id: result.user.uid,
         email: result.user.email,
-        name: name
+        name: name,
+        photoURL: null,
       });
     } catch (error) {
       console.error('Signup error:', error);
@@ -92,10 +165,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
+      const userRef = ref(database, `users/${result.user.uid}`);
+      const snapshot = await get(userRef);
+      const userData = snapshot.val();
+
       setUser({
         id: result.user.uid,
         email: result.user.email,
-        name: result.user.displayName
+        name: userData?.name || result.user.displayName,
+        photoURL: userData?.photoURL || result.user.photoURL,
       });
     } catch (error) {
       console.error('Signin error:', error);
@@ -126,7 +204,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!auth.currentUser) return;
 
     try {
-      // Delete user's game data
       if (user) {
         const userGamesRef = ref(database, `userGames/${user.id}`);
         const userDataRef = ref(database, `users/${user.id}`);
@@ -134,7 +211,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await remove(userDataRef);
       }
 
-      // Delete user account
       await deleteUser(auth.currentUser);
       setUser(null);
     } catch (error) {
@@ -151,7 +227,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signIn, 
       logout,
       resetPassword,
-      deleteAccount
+      deleteAccount,
+      updateUserProfile,
+      updateUserEmail,
+      updateUserPassword,
     }}>
       {children}
     </AuthContext.Provider>
