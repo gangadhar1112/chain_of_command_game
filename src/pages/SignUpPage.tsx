@@ -29,7 +29,7 @@ const SignUpPage: React.FC = () => {
     e.preventDefault();
     setError('');
 
-    // Validation
+    // Form validation
     if (!email.trim() || !name.trim()) {
       setError('Email and name are required');
       return;
@@ -50,41 +50,33 @@ const SignUpPage: React.FC = () => {
       return;
     }
 
-    setLoading(true);
-    const loadingToast = toast.loading('Creating your account...');
-
     try {
+      setLoading(true);
       let photoURL = null;
 
-      // Handle image upload if a profile image was selected
+      // Handle profile image upload if one was selected
       if (profileImage) {
+        const storage = getStorage();
+        const imageRef = storageRef(storage, `profile_images/${Date.now()}_${profileImage.name}`);
+        
         try {
-          const storage = getStorage();
-          const imageRef = storageRef(storage, `profile_images/${Date.now()}_${profileImage.name}`);
-          await toast.promise(
-            uploadBytes(imageRef, profileImage),
-            {
-              loading: 'Uploading profile image...',
-              success: 'Profile image uploaded!',
-              error: 'Failed to upload profile image'
-            }
-          );
-          photoURL = await getDownloadURL(imageRef);
+          const uploadResult = await uploadBytes(imageRef, profileImage);
+          photoURL = await getDownloadURL(uploadResult.ref);
         } catch (uploadError) {
           console.error('Error uploading profile image:', uploadError);
-          toast.error('Failed to upload profile image, continuing with signup');
+          toast.error('Failed to upload profile image');
+          return;
         }
       }
 
       // Create the account
       await signUp(email.trim(), password, name.trim(), photoURL);
-      
-      toast.success('Account created successfully!', {
-        id: loadingToast,
-      });
+      toast.success('Account created successfully!');
       navigate('/');
     } catch (err) {
       console.error('Signup error:', err);
+      setLoading(false);
+      
       if (err instanceof FirebaseError) {
         switch (err.code) {
           case 'auth/email-already-in-use':
@@ -97,14 +89,13 @@ const SignUpPage: React.FC = () => {
             setError('Password is too weak - must be at least 6 characters');
             break;
           default:
-            setError(`Failed to create account: ${err.message}`);
+            setError('Failed to create account. Please try again.');
         }
       } else {
         setError('An unexpected error occurred. Please try again.');
       }
-      toast.error(error || 'Failed to create account', {
-        id: loadingToast,
-      });
+      
+      toast.error(error || 'Failed to create account');
     } finally {
       setLoading(false);
     }
