@@ -1,5 +1,5 @@
 // Game roles
-export type Role = 'raja' | 'rani' | 'mantri' | 'sipahi' | 'police' | 'chor';
+export type Role = 'king' | 'queen' | 'minister' | 'soldier' | 'police' | 'thief';
 
 // Game states
 export type GameState = 'waiting' | 'lobby' | 'playing' | 'completed' | 'interrupted';
