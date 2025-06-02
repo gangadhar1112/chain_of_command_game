@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, ArrowLeft, Loader } from 'lucide-react';
 import { FirebaseError } from 'firebase/app';
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '../context/AuthContext';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import ImageUpload from '../components/ImageUpload';
 import toast from 'react-hot-toast';
 
 const SignUpPage: React.FC = () => {
@@ -17,19 +15,13 @@ const SignUpPage: React.FC = () => {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [profileImage, setProfileImage] = useState<File | null>(null);
   const { signUp } = useAuth();
   const navigate = useNavigate();
-
-  const handleImageSelect = (file: File) => {
-    setProfileImage(file);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    // Form validation
     if (!email.trim() || !name.trim()) {
       setError('Email and name are required');
       return;
@@ -52,31 +44,11 @@ const SignUpPage: React.FC = () => {
 
     try {
       setLoading(true);
-      let photoURL = null;
-
-      // Handle profile image upload if one was selected
-      if (profileImage) {
-        const storage = getStorage();
-        const imageRef = storageRef(storage, `profile_images/${Date.now()}_${profileImage.name}`);
-        
-        try {
-          const uploadResult = await uploadBytes(imageRef, profileImage);
-          photoURL = await getDownloadURL(uploadResult.ref);
-        } catch (uploadError) {
-          console.error('Error uploading profile image:', uploadError);
-          toast.error('Failed to upload profile image');
-          return;
-        }
-      }
-
-      // Create the account
-      await signUp(email.trim(), password, name.trim(), photoURL);
+      await signUp(email.trim(), password, name.trim());
       toast.success('Account created successfully!');
       navigate('/');
     } catch (err) {
       console.error('Signup error:', err);
-      setLoading(false);
-      
       if (err instanceof FirebaseError) {
         switch (err.code) {
           case 'auth/email-already-in-use':
@@ -94,7 +66,6 @@ const SignUpPage: React.FC = () => {
       } else {
         setError('An unexpected error occurred. Please try again.');
       }
-      
       toast.error(error || 'Failed to create account');
     } finally {
       setLoading(false);
@@ -118,13 +89,6 @@ const SignUpPage: React.FC = () => {
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex justify-center mb-6">
-              <ImageUpload
-                onImageSelect={handleImageSelect}
-                currentImage={null}
-              />
-            </div>
-
             <Input
               label="Name"
               id="name"

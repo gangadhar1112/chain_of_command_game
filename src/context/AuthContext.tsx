@@ -26,7 +26,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string, photoURL?: string | null) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -137,19 +137,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUp = async (email: string, password: string, name: string, photoURL?: string | null) => {
+  const signUp = async (email: string, password: string, name: string) => {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(result.user, { 
-        displayName: name,
-        photoURL: photoURL || null
-      });
+      await updateProfile(result.user, { displayName: name });
       
       const userRef = ref(database, `users/${result.user.uid}`);
       await set(userRef, {
         email: result.user.email,
         name: name,
-        photoURL: photoURL || null,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
@@ -158,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: result.user.uid,
         email: result.user.email,
         name: name,
-        photoURL: photoURL || null,
+        photoURL: null,
       });
     } catch (error) {
       console.error('Signup error:', error);
