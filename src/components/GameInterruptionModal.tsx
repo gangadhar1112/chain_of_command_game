@@ -1,15 +1,20 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Users } from 'lucide-react';
 import Button from './Button';
 import { useNavigate } from 'react-router-dom';
 
 interface GameInterruptionModalProps {
   show: boolean;
   reason: string;
+  disconnectedPlayers?: string[];
 }
 
-const GameInterruptionModal: React.FC<GameInterruptionModalProps> = ({ show, reason }) => {
+const GameInterruptionModal: React.FC<GameInterruptionModalProps> = ({ 
+  show, 
+  reason,
+  disconnectedPlayers = []
+}) => {
   const navigate = useNavigate();
 
   return (
@@ -37,9 +42,27 @@ const GameInterruptionModal: React.FC<GameInterruptionModalProps> = ({ show, rea
               Game Interrupted
             </h2>
             
-            <p className="text-purple-200 text-center mb-6">
+            <p className="text-purple-200 text-center mb-4">
               {reason}
             </p>
+
+            {disconnectedPlayers.length > 0 && (
+              <div className="mb-6 bg-purple-800/50 rounded-lg p-4">
+                <div className="flex items-center mb-2">
+                  <Users className="text-purple-400 h-5 w-5 mr-2" />
+                  <h3 className="text-sm font-semibold text-purple-200">
+                    Disconnected Players:
+                  </h3>
+                </div>
+                <ul className="space-y-1">
+                  {disconnectedPlayers.map((player, index) => (
+                    <li key={index} className="text-purple-300 text-sm pl-7">
+                      • {player}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             
             <div className="flex justify-center">
               <Button
