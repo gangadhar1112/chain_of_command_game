@@ -169,6 +169,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      // Check if user is already in the game
+      const existingPlayer = gameData.players?.find((p: Player) => p.userId === user.id);
+      if (existingPlayer) {
+        // If the game is in lobby, allow rejoin
+        if (gameData.state === 'lobby') {
+          setGameId(gameId);
+          setGameState('lobby');
+          setPlayers(gameData.players || []);
+          setIsHost(existingPlayer.isHost);
+          return true;
+        }
+        // If game is in progress, navigate to game page
+        navigate(`/game/${gameId}`);
+        return true;
+      }
+
       if (gameData.state !== 'lobby') {
         toast.error('Game has already started');
         return false;
