@@ -54,10 +54,16 @@ const SignUpPage: React.FC = () => {
       let photoURL = null;
 
       if (profileImage) {
-        const storage = getStorage();
-        const imageRef = storageRef(storage, `profile_images/${Date.now()}_${profileImage.name}`);
-        await uploadBytes(imageRef, profileImage);
-        photoURL = await getDownloadURL(imageRef);
+        try {
+          const storage = getStorage();
+          const imageRef = storageRef(storage, `profile_images/${Date.now()}_${profileImage.name}`);
+          const snapshot = await uploadBytes(imageRef, profileImage);
+          photoURL = await getDownloadURL(snapshot.ref);
+        } catch (uploadError) {
+          console.error('Error uploading profile image:', uploadError);
+          toast.error('Failed to upload profile image');
+          // Continue with signup even if image upload fails
+        }
       }
 
       await signUp(email.trim(), password, name.trim(), photoURL);
