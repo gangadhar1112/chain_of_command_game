@@ -125,6 +125,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const memoizedRoleInfo = useMemo(() => roleInfoMap, []);
   const memoizedRoleChain = useMemo(() => roleChain, []);
 
+  // Move handleGameInterruption to the top of the function definitions
+  const handleGameInterruption = useCallback((reason: string, disconnectedPlayers?: string[]) => {
+    setInterruptionReason(reason);
+    setDisconnectedPlayers(disconnectedPlayers || []);
+    setShowInterruptionModal(true);
+    
+    localStorage.removeItem('currentGameId');
+    localStorage.removeItem('currentPlayerId');
+    setGameState('waiting');
+    setPlayers([]);
+    setCurrentPlayer(null);
+    setGameId(null);
+    setIsHost(false);
+  }, []);
+
   const debouncedSaveGameState = useCallback(
     debounce(async (gameId: string, players: Player[], gameState: GameState) => {
       const updates: { [key: string]: any } = {
@@ -326,40 +341,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLastGuessResult(null);
   }, []);
 
-  useEffect(() => {
-    const savedGameId = localStorage.getItem('currentGameId');
-    const savedPlayerId = localStorage.getItem('currentPlayerId');
-    
-    if (savedGameId && savedPlayerId && user) {
-      const gameRef = ref(database, `games/${savedGameId}`);
-      get(gameRef).then((snapshot) => {
-        const gameData = snapshot.val();
-        if (gameData) {
-          const player = gameData.players?.find((p: Player) => p.id === savedPlayerId && p.userId === user.id);
-          if (player) {
-            setGameId(savedGameId);
-            setCurrentPlayer(player);
-            setPlayers(gameData.players || []);
-            setGameState(gameData.gameState);
-            setIsHost(player.isHost);
-            
-            const presenceRef = ref(database, `presence/${savedGameId}/${player.id}`);
-            set(presenceRef, {
-              online: true,
-              lastSeen: Date.now(),
-              userId: user.id,
-              name: player.name
-            });
+  const handlePlayerDisconnection = useCallback(async (disconnectedPlayer: Player) => {
+    if (!gameId || gameState !== 'playing') return;
 
-            onDisconnect(presenceRef).remove();
-          } else {
-            localStorage.removeItem('currentGameId');
-            localStorage.removeItem('currentPlayerId');
-          }
-        }
-      });
+    const updatedPlayers = players.filter(p => p.id !== disconnectedPlayer.id);
+    
+    if (updatedPlayers.length < 3) {
+      handleGameInterruption(`Game ended: ${disconnectedPlayer.name} disconnected and there are not enough players to continue`, [disconnectedPlayer.name]);
+      return;
     }
-  }, [user]);
+
+    if (disconnectedPlayer.isHost && updatedPlayers.length > 0) {
+      updatedPlayers[0].isHost = true;
+    }
+
+    if (disconnectedPlayer.isCurrentTurn) {
+      const nextPlayerIndex = updatedPlayers.findIndex(p => !p.isLocked);
+      if (nextPlayerIndex !== -1) {
+        updatedPlayers[nextPlayerIndex].isCurrentTurn = true;
+      }
+    }
+
+    const updates: { [key: string]: any } = {
+      [`games/${gameId}/players`]: updatedPlayers,
+      [`games/${gameId}/updatedAt`]: Date.now(),
+    };
+
+    try {
+      await update(ref(database), updates);
+      toast.error(`${disconnectedPlayer.name} has disconnected from the game`);
+    } catch (error) {
+      console.error('Error handling player disconnection:', error);
+    }
+  }, [gameId, gameState, players, handleGameInterruption]);
 
   const updatePresence = useCallback(async () => {
     if (!gameId || !currentPlayer || !user) return;
@@ -394,6 +408,41 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error updating presence:', error);
     }
   }, [gameId, currentPlayer, user]);
+
+  useEffect(() => {
+    const savedGameId = localStorage.getItem('currentGameId');
+    const savedPlayerId = localStorage.getItem('currentPlayerId');
+    
+    if (savedGameId && savedPlayerId && user) {
+      const gameRef = ref(database, `games/${savedGameId}`);
+      get(gameRef).then((snapshot) => {
+        const gameData = snapshot.val();
+        if (gameData) {
+          const player = gameData.players?.find((p: Player) => p.id === savedPlayerId && p.userId === user.id);
+          if (player) {
+            setGameId(savedGameId);
+            setCurrentPlayer(player);
+            setPlayers(gameData.players || []);
+            setGameState(gameData.gameState);
+            setIsHost(player.isHost);
+            
+            const presenceRef = ref(database, `presence/${savedGameId}/${player.id}`);
+            set(presenceRef, {
+              online: true,
+              lastSeen: Date.now(),
+              userId: user.id,
+              name: player.name
+            });
+
+            onDisconnect(presenceRef).remove();
+          } else {
+            localStorage.removeItem('currentGameId');
+            localStorage.removeItem('currentPlayerId');
+          }
+        }
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!gameId || !currentPlayer) return;
@@ -463,55 +512,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         presenceCleanup();
       }
     };
-  }, [gameId, currentPlayer, players, updatePresence]);
-
-  const handlePlayerDisconnection = useCallback(async (disconnectedPlayer: Player) => {
-    if (!gameId || gameState !== 'playing') return;
-
-    const updatedPlayers = players.filter(p => p.id !== disconnectedPlayer.id);
-    
-    if (updatedPlayers.length < 3) {
-      handleGameInterruption(`Game ended: ${disconnectedPlayer.name} disconnected and there are not enough players to continue`, [disconnectedPlayer.name]);
-      return;
-    }
-
-    if (disconnectedPlayer.isHost && updatedPlayers.length > 0) {
-      updatedPlayers[0].isHost = true;
-    }
-
-    if (disconnectedPlayer.isCurrentTurn) {
-      const nextPlayerIndex = updatedPlayers.findIndex(p => !p.isLocked);
-      if (nextPlayerIndex !== -1) {
-        updatedPlayers[nextPlayerIndex].isCurrentTurn = true;
-      }
-    }
-
-    const updates: { [key: string]: any } = {
-      [`games/${gameId}/players`]: updatedPlayers,
-      [`games/${gameId}/updatedAt`]: Date.now(),
-    };
-
-    try {
-      await update(ref(database), updates);
-      toast.error(`${disconnectedPlayer.name} has disconnected from the game`);
-    } catch (error) {
-      console.error('Error handling player disconnection:', error);
-    }
-  }, [gameId, gameState, players, handleGameInterruption]);
-
-  const handleGameInterruption = useCallback((reason: string, disconnectedPlayers?: string[]) => {
-    setInterruptionReason(reason);
-    setDisconnectedPlayers(disconnectedPlayers || []);
-    setShowInterruptionModal(true);
-    
-    localStorage.removeItem('currentGameId');
-    localStorage.removeItem('currentPlayerId');
-    setGameState('waiting');
-    setPlayers([]);
-    setCurrentPlayer(null);
-    setGameId(null);
-    setIsHost(false);
-  }, []);
+  }, [gameId, currentPlayer, players, updatePresence, handleGameInterruption]);
 
   return (
     <GameContext.Provider value={{
