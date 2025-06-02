@@ -6,6 +6,7 @@ import { GameProvider } from './context/GameContext';
 import HomePage from './pages/HomePage';
 import CreateGamePage from './pages/CreateGamePage';
 import JoinGamePage from './pages/JoinGamePage';
+import QuickPlayPage from './pages/QuickPlayPage';
 import GameRoomPage from './pages/GameRoomPage';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
@@ -22,6 +23,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/create" element={<CreateGamePage />} />
               <Route path="/join" element={<JoinGamePage />} />
+              <Route path="/quick-play" element={<QuickPlayPage />} />
               <Route path="/game/:gameId" element={<GameRoomPage />} />
               <Route path="/signin" element={<SignInPage />} />
               <Route path="/signup" element={<SignUpPage />} />
@@ -46,4 +48,4 @@ function App() {
   );
 }
 
-export default App
+export default App;
