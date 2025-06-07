@@ -11,16 +11,11 @@ import {
   deleteUser,
   updateProfile,
   updateEmail,
-  updatePassword,
-  signInWithRedirect,
-  getRedirectResult,
-  GoogleAuthProvider,
-  FacebookAuthProvider
+  updatePassword
 } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 import { ref, remove, set, get } from 'firebase/database';
 import { auth, database } from '../config/firebase';
-import toast from 'react-hot-toast';
 
 interface User {
   id: string;
@@ -34,8 +29,6 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signInWithFacebook: () => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -49,8 +42,6 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signUp: async () => {},
   signIn: async () => {},
-  signInWithGoogle: async () => {},
-  signInWithFacebook: async () => {},
   logout: async () => {},
   resetPassword: async () => {},
   deleteAccount: async () => {},
@@ -67,41 +58,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
-
-    // Handle redirect result first
-    const handleRedirectResult = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result) {
-          await saveUserToDatabase(result.user);
-          
-          // Check if admin and show appropriate message
-          if (result.user.email === 'gangadhar.g0516@gmail.com') {
-            toast.success('Welcome back, Admin!');
-          } else {
-            toast.success('Successfully signed in!');
-          }
-        }
-      } catch (error) {
-        console.error('Redirect result error:', error);
-        if (error instanceof FirebaseError) {
-          switch (error.code) {
-            case 'auth/account-exists-with-different-credential':
-              toast.error('An account already exists with this email using a different sign-in method');
-              break;
-            case 'auth/operation-not-allowed':
-              toast.error('Social sign-in is not enabled. Please contact support.');
-              break;
-            default:
-              toast.error('Failed to sign in. Please try again.');
-          }
-        } else {
-          toast.error('An unexpected error occurred during sign-in.');
-        }
-      }
-    };
-
-    handleRedirectResult();
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
@@ -143,52 +99,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: userData.name,
       photoURL: firebaseUser.photoURL,
     });
-  };
-
-  const signInWithGoogle = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.addScope('email');
-      provider.addScope('profile');
-      
-      // Use redirect instead of popup for better compatibility
-      await signInWithRedirect(auth, provider);
-    } catch (error) {
-      console.error('Google sign in error:', error);
-      if (error instanceof FirebaseError) {
-        switch (error.code) {
-          case 'auth/account-exists-with-different-credential':
-            throw new Error('An account already exists with this email using a different sign-in method.');
-          case 'auth/operation-not-allowed':
-            throw new Error('Google sign-in is not enabled. Please contact support.');
-          default:
-            throw new Error('Failed to sign in with Google. Please try again.');
-        }
-      }
-      throw error;
-    }
-  };
-
-  const signInWithFacebook = async () => {
-    try {
-      const provider = new FacebookAuthProvider();
-      provider.addScope('email');
-      
-      await signInWithRedirect(auth, provider);
-    } catch (error) {
-      console.error('Facebook sign in error:', error);
-      if (error instanceof FirebaseError) {
-        switch (error.code) {
-          case 'auth/account-exists-with-different-credential':
-            throw new Error('An account already exists with this email using a different sign-in method.');
-          case 'auth/operation-not-allowed':
-            throw new Error('Facebook sign-in is not enabled. Please contact support.');
-          default:
-            throw new Error('Failed to sign in with Facebook. Please try again.');
-        }
-      }
-      throw error;
-    }
   };
 
   const updateUserProfile = async (data: { name?: string; photoURL?: string }) => {
@@ -325,8 +235,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading, 
       signUp, 
       signIn, 
-      signInWithGoogle,
-      signInWithFacebook,
       logout,
       resetPassword,
       deleteAccount,
