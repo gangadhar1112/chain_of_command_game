@@ -79,31 +79,16 @@ const SignInPage: React.FC = () => {
       setSocialLoading('google');
       setError('');
       await signInWithGoogle();
-      
-      const from = location.state?.from || '/';
-      navigate(from);
-      toast.success('Successfully signed in with Google!');
+      // Navigation and toast will be handled by AuthContext after redirect
     } catch (err) {
       console.error('Google signin error:', err);
-      if (err instanceof FirebaseError) {
-        switch (err.code) {
-          case 'auth/account-exists-with-different-credential':
-            setError('An account already exists with this email using a different sign-in method');
-            break;
-          case 'auth/popup-closed-by-user':
-            setError('Sign-in was cancelled');
-            break;
-          case 'auth/popup-blocked':
-            setError('Popup was blocked. Please allow popups and try again');
-            break;
-          default:
-            setError('Failed to sign in with Google. Please try again.');
-        }
+      if (err instanceof Error) {
+        setError(err.message);
+        toast.error(err.message);
       } else {
         setError('An unexpected error occurred with Google sign-in.');
+        toast.error('An unexpected error occurred with Google sign-in.');
       }
-      toast.error(error || 'Failed to sign in with Google');
-    } finally {
       setSocialLoading(null);
     }
   };
@@ -113,31 +98,16 @@ const SignInPage: React.FC = () => {
       setSocialLoading('facebook');
       setError('');
       await signInWithFacebook();
-      
-      const from = location.state?.from || '/';
-      navigate(from);
-      toast.success('Successfully signed in with Facebook!');
+      // Navigation and toast will be handled by AuthContext after redirect
     } catch (err) {
       console.error('Facebook signin error:', err);
-      if (err instanceof FirebaseError) {
-        switch (err.code) {
-          case 'auth/account-exists-with-different-credential':
-            setError('An account already exists with this email using a different sign-in method');
-            break;
-          case 'auth/popup-closed-by-user':
-            setError('Sign-in was cancelled');
-            break;
-          case 'auth/popup-blocked':
-            setError('Popup was blocked. Please allow popups and try again');
-            break;
-          default:
-            setError('Failed to sign in with Facebook. Please try again.');
-        }
+      if (err instanceof Error) {
+        setError(err.message);
+        toast.error(err.message);
       } else {
         setError('An unexpected error occurred with Facebook sign-in.');
+        toast.error('An unexpected error occurred with Facebook sign-in.');
       }
-      toast.error(error || 'Failed to sign in with Facebook');
-    } finally {
       setSocialLoading(null);
     }
   };

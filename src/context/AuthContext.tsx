@@ -12,13 +12,15 @@ import {
   updateProfile,
   updateEmail,
   updatePassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   FacebookAuthProvider
 } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 import { ref, remove, set, get } from 'firebase/database';
 import { auth, database } from '../config/firebase';
+import toast from 'react-hot-toast';
 
 interface User {
   id: string;
@@ -65,6 +67,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     setPersistence(auth, browserLocalPersistence).catch(console.error);
+
+    // Handle redirect result first
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result) {
+          await saveUserToDatabase(result.user);
+          
+          // Check if admin and show appropriate message
+          if (result.user.email === 'gangadhar.g0516@gmail.com') {
+            toast.success('Welcome back, Admin!');
+          } else {
+            toast.success('Successfully signed in!');
+          }
+        }
+      } catch (error) {
+        console.error('Redirect result error:', error);
+        if (error instanceof FirebaseError) {
+          switch (error.code) {
+            case 'auth/account-exists-with-different-credential':
+              toast.error('An account already exists with this email using a different sign-in method');
+              break;
+            case 'auth/operation-not-allowed':
+              toast.error('Social sign-in is not enabled. Please contact support.');
+              break;
+            default:
+              toast.error('Failed to sign in. Please try again.');
+          }
+        } else {
+          toast.error('An unexpected error occurred during sign-in.');
+        }
+      }
+    };
+
+    handleRedirectResult();
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
@@ -115,16 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       provider.addScope('profile');
       
       // Use redirect instead of popup for better compatibility
-      const result = await signInWithPopup(auth, provider);
-      await saveUserToDatabase(result.user);
+      await signInWithRedirect(auth, provider);
     } catch (error) {
       console.error('Google sign in error:', error);
       if (error instanceof FirebaseError) {
         switch (error.code) {
-          case 'auth/popup-blocked':
-            throw new Error('Popup was blocked. Please allow popups and try again.');
-          case 'auth/popup-closed-by-user':
-            throw new Error('Sign-in was cancelled.');
           case 'auth/account-exists-with-different-credential':
             throw new Error('An account already exists with this email using a different sign-in method.');
           case 'auth/operation-not-allowed':
@@ -142,16 +174,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const provider = new FacebookAuthProvider();
       provider.addScope('email');
       
-      const result = await signInWithPopup(auth, provider);
-      await saveUserToDatabase(result.user);
+      await signInWithRedirect(auth, provider);
     } catch (error) {
       console.error('Facebook sign in error:', error);
       if (error instanceof FirebaseError) {
         switch (error.code) {
-          case 'auth/popup-blocked':
-            throw new Error('Popup was blocked. Please allow popups and try again.');
-          case 'auth/popup-closed-by-user':
-            throw new Error('Sign-in was cancelled.');
           case 'auth/account-exists-with-different-credential':
             throw new Error('An account already exists with this email using a different sign-in method.');
           case 'auth/operation-not-allowed':
