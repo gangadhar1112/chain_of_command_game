@@ -11,7 +11,10 @@ import {
   deleteUser,
   updateProfile,
   updateEmail,
-  updatePassword
+  updatePassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  FacebookAuthProvider
 } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 import { ref, remove, set, get } from 'firebase/database';
@@ -29,6 +32,8 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -42,6 +47,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signUp: async () => {},
   signIn: async () => {},
+  signInWithGoogle: async () => {},
+  signInWithFacebook: async () => {},
   logout: async () => {},
   resetPassword: async () => {},
   deleteAccount: async () => {},
@@ -80,6 +87,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
+  const saveUserToDatabase = async (firebaseUser: FirebaseUser, additionalData?: { name?: string }) => {
+    const userRef = ref(database, `users/${firebaseUser.uid}`);
+    const userData = {
+      email: firebaseUser.email,
+      name: additionalData?.name || firebaseUser.displayName || '',
+      photoURL: firebaseUser.photoURL,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    
+    await set(userRef, userData);
+    
+    setUser({
+      id: firebaseUser.uid,
+      email: firebaseUser.email,
+      name: userData.name,
+      photoURL: firebaseUser.photoURL,
+    });
+  };
+
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      
+      const result = await signInWithPopup(auth, provider);
+      await saveUserToDatabase(result.user);
+    } catch (error) {
+      console.error('Google sign in error:', error);
+      throw error;
+    }
+  };
+
+  const signInWithFacebook = async () => {
+    try {
+      const provider = new FacebookAuthProvider();
+      provider.addScope('email');
+      
+      const result = await signInWithPopup(auth, provider);
+      await saveUserToDatabase(result.user);
+    } catch (error) {
+      console.error('Facebook sign in error:', error);
+      throw error;
+    }
+  };
 
   const updateUserProfile = async (data: { name?: string; photoURL?: string }) => {
     if (!auth.currentUser) return;
@@ -142,21 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName: name });
-      
-      const userRef = ref(database, `users/${result.user.uid}`);
-      await set(userRef, {
-        email: result.user.email,
-        name: name,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-
-      setUser({
-        id: result.user.uid,
-        email: result.user.email,
-        name: name,
-        photoURL: null,
-      });
+      await saveUserToDatabase(result.user, { name });
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
@@ -229,6 +269,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading, 
       signUp, 
       signIn, 
+      signInWithGoogle,
+      signInWithFacebook,
       logout,
       resetPassword,
       deleteAccount,
