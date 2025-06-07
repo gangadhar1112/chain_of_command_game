@@ -114,10 +114,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       provider.addScope('email');
       provider.addScope('profile');
       
+      // Use redirect instead of popup for better compatibility
       const result = await signInWithPopup(auth, provider);
       await saveUserToDatabase(result.user);
     } catch (error) {
       console.error('Google sign in error:', error);
+      if (error instanceof FirebaseError) {
+        switch (error.code) {
+          case 'auth/popup-blocked':
+            throw new Error('Popup was blocked. Please allow popups and try again.');
+          case 'auth/popup-closed-by-user':
+            throw new Error('Sign-in was cancelled.');
+          case 'auth/account-exists-with-different-credential':
+            throw new Error('An account already exists with this email using a different sign-in method.');
+          case 'auth/operation-not-allowed':
+            throw new Error('Google sign-in is not enabled. Please contact support.');
+          default:
+            throw new Error('Failed to sign in with Google. Please try again.');
+        }
+      }
       throw error;
     }
   };
@@ -131,6 +146,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await saveUserToDatabase(result.user);
     } catch (error) {
       console.error('Facebook sign in error:', error);
+      if (error instanceof FirebaseError) {
+        switch (error.code) {
+          case 'auth/popup-blocked':
+            throw new Error('Popup was blocked. Please allow popups and try again.');
+          case 'auth/popup-closed-by-user':
+            throw new Error('Sign-in was cancelled.');
+          case 'auth/account-exists-with-different-credential':
+            throw new Error('An account already exists with this email using a different sign-in method.');
+          case 'auth/operation-not-allowed':
+            throw new Error('Facebook sign-in is not enabled. Please contact support.');
+          default:
+            throw new Error('Failed to sign in with Facebook. Please try again.');
+        }
+      }
       throw error;
     }
   };
